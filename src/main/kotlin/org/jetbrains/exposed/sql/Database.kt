@@ -25,7 +25,7 @@ class Database private constructor(val connector: () -> Connection) {
 
     val url: String by lazy { metadata.url }
 
-    internal val dialect by lazy {
+    var dialect : DatabaseDialect = run {
         val name = url.removePrefix("jdbc:").substringBefore(':')
         dialects[name.toLowerCase()]?.invoke() ?: error("No dialect registered for $name. URL=$url")
     }
@@ -61,7 +61,7 @@ class Database private constructor(val connector: () -> Connection) {
     private fun Char.isIdentifierStart(): Boolean = this in 'a'..'z' || this in 'A'..'Z' || this == '_' || this in extraNameCharacters
 
     companion object {
-        private val dialects = ConcurrentHashMap<String, () ->DatabaseDialect>()
+        private val dialects = ConcurrentHashMap<String, ()->DatabaseDialect>()
 
         init {
             registerDialect(H2Dialect.dialectName) { H2Dialect() }
@@ -75,6 +75,8 @@ class Database private constructor(val connector: () -> Connection) {
         fun registerDialect(prefix:String, dialect: () -> DatabaseDialect) {
             dialects[prefix] = dialect
         }
+
+        fun getDialect(dialectName: String) = dialects[dialectName]
 
         private fun doConnect(getNewConnection: () -> Connection, setupConnection: (Connection) -> Unit = {},
                     manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_ISOLATION_LEVEL) }

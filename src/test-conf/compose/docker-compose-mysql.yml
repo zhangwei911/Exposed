@@ -1,0 +1,8 @@
+version: '3.5'
+
+services:
+  mysql:
+    image: "mysql:${DB_VERSION:-latest}"
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password

@@ -55,9 +55,21 @@ enum class TestDB(val connection: String, val driver: String, val user: String =
             }),
     SQLSERVER("jdbc:sqlserver://${System.getProperty("exposed.test.sqlserver.host", "192.168.99.100")}" +
             ":${System.getProperty("exposed.test.sqlserver.port", "32781")}",
-            "com.microsoft.sqlserver.jdbc.SQLServerDriver", "SA", "yourStrong(!)Password");
+            "com.microsoft.sqlserver.jdbc.SQLServerDriver", "SA", "yourStrong(!)Password"),
 
-    fun connect() = Database.connect(connection, user = user, password = pass, driver = driver)
+    CUSTOM(System.getProperty("exposed.test.custom.url", ""),
+            System.getProperty("exposed.test.custom.driver", ""),
+            System.getProperty("exposed.test.custom.user", ""),
+            System.getProperty("exposed.test.custom.pass", "")
+            );
+
+    fun connect() = Database.connect(connection, user = user, password = pass, driver = driver).also { db ->
+        if (this == CUSTOM) {
+            System.getProperty("exposed.test.custom.dialect")?.let { dialect ->
+                db.dialect = Database.getDialect(dialect)!!()
+            }
+        }
+    }
 
     companion object {
         fun enabledInTests(): List<TestDB> {

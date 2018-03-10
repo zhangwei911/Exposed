@@ -13,7 +13,7 @@ buildscript {
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.5.2"
+        classpath "com.avast.gradle:gradle-docker-compose-plugin:0.7.1"
     }
 }
 
@@ -51,13 +51,36 @@ exposedDialectTestWithDocker.doFirst {
 
 dockerCompose.isRequiredBy(exposedDialectTestWithDocker)
 
+task mysql56Test(type: Test) {
+    apply from: 'src/test-conf/mysql56.gradle'
+//    composeUp.execute()
+//    exposedDialectTestWithDocker.execute()
+    println "MYSQL"
+//    environment 'DB_VERSION' "5.6"
+}
+
 dockerCompose {
-    useComposeFiles = ['docker-compose-' + dialect + '.yml']
+//    def dialectProp = System.getProperty("dialect", "")
+//    println dialectProp
+//    println ext.dialect
+    mysql {
+        environment.put 'DB_VERSION', '5.6'
+
+        useComposeFiles = ['src/test-conf/compose/docker-compose-mysql.yml']
+        isRequiredBy(project.tasks.mysql56Test)
+    }
+//    }
     captureContainersOutput = true
     removeVolumes = true
     environment.put 'COMPOSE_CONVERT_WINDOWS_PATHS', 'true'
     waitForHealthyStateTimeout = Duration.ofMinutes(60)
 }
+
+//gradle.taskGraph.whenReady {taskGraph ->
+//    if (taskGraph.hasTask(mysql56Test)) {
+////        System.setProperty("dialect", "oracle")
+//    }
+//}
 
 artifacts {
     archives sourcesJar
@@ -87,6 +110,10 @@ dependencies {
     testCompile 'com.oracle:ojdbc6:12.1.0.1-atlassian-hosted'
     testCompile group: 'com.microsoft.sqlserver', name: 'mssql-jdbc', version: '6.2.1.jre7'
 }
+
+
+
+//mysql56Test.dependsOn(mysql)
 
 test {
     jvmArgs "-XX:MaxPermSize=256m"
