@@ -59,8 +59,8 @@ enum class TestDB(val connection: String, val driver: String, val user: String =
 
     CUSTOM(System.getProperty("exposed.test.custom.url", ""),
             System.getProperty("exposed.test.custom.driver", ""),
-            System.getProperty("exposed.test.custom.user", ""),
-            System.getProperty("exposed.test.custom.pass", "")
+            System.getProperty("exposed.test.custom.user", "root"),
+            System.getProperty("exposed.test.custom.pass", "password")
             );
 
     fun connect() = Database.connect(connection, user = user, password = pass, driver = driver).also { db ->
@@ -73,7 +73,7 @@ enum class TestDB(val connection: String, val driver: String, val user: String =
 
     companion object {
         fun enabledInTests(): List<TestDB> {
-            val embeddedTests = (TestDB.values().toList() - ORACLE - SQLSERVER).joinToString()
+            val embeddedTests = (TestDB.values().toList() - ORACLE - SQLSERVER - CUSTOM).joinToString()
             val concreteDialects = System.getProperty("exposed.test.dialects", embeddedTests).let {
                 if (it == "") emptyList()
                 else it.split(',').map { it.trim().toUpperCase() }

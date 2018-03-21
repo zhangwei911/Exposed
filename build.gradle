@@ -56,16 +56,17 @@ task mysql56Test(type: Test) {
 //    composeUp.execute()
 //    exposedDialectTestWithDocker.execute()
     println "MYSQL"
-//    environment 'DB_VERSION' "5.6"
+    project.setProperty('db_version', '5.6')
+//    env
 }
 
 dockerCompose {
 //    def dialectProp = System.getProperty("dialect", "")
 //    println dialectProp
 //    println ext.dialect
-    mysql {
-        environment.put 'DB_VERSION', '5.6'
 
+    mysql {
+        environment.put 'DB_VERSION', project.property('db_version')
         useComposeFiles = ['src/test-conf/compose/docker-compose-mysql.yml']
         isRequiredBy(project.tasks.mysql56Test)
     }
@@ -117,6 +118,7 @@ dependencies {
 
 test {
     jvmArgs "-XX:MaxPermSize=256m"
+
     testLogging {
         events "PASSED", "FAILED", "SKIPPED"
         showStandardStreams = true

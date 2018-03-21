@@ -1,3 +1,14 @@
 dependencies {
     "mysql:mysql-connector-java:5.1.44"
 }
+
+mysql56Test.doFirst {
+    println('INIT')
+//tasks.withType(Test) {
+//    def containerInfo = dockerCompose.servicesInfos['mysql']
+    def url = "jdbc:mysql://localhost:3306" //+ containerInfo.host + ':' + containerInfo.ports['3306']
+    systemProperty 'exposed.test.dialects', dialect
+    systemProperty 'exposed.test.custom.dialect', 'mysql'
+    systemProperty 'exposed.test.custom.driver', 'com.mysql.jdbc.Driver'
+    systemProperty 'exposed.test.custom.url', url
+}
