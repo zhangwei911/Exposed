@@ -14,12 +14,11 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.sqlite.SQLiteConnection
 import org.sqlite.SQLiteDataSource
+import org.sqlite.jdbc4.JDBC4DatabaseMetaData
 import java.io.PrintWriter
-import java.sql.Connection
-import java.sql.DriverManager
-import java.sql.SQLException
-import java.sql.SQLTransientException
+import java.sql.*
 import java.util.logging.Logger
 import javax.sql.DataSource
 import kotlin.concurrent.thread
@@ -123,7 +122,7 @@ class ConnectionExceptions {
             fail("Should have thrown an exception")
         } catch (e : SQLException){
             assertThat(e.toString(), Matchers.containsString("BROKEN_SQL_THAT_CAUSES_EXCEPTION"))
-            assertEquals(5, wrappingDataSource.connections.size)
+            assertEquals(6, wrappingDataSource.connections.size)
             wrappingDataSource.connections.forEach {
                 assertFalse(it.commitCalled)
                 assertTrue(it.rollbackCalled)
@@ -155,8 +154,9 @@ class ConnectionExceptions {
             }
             fail("Should have thrown an exception")
         } catch (e: CommitException) {
-            assertEquals(5, wrappingDataSource.connections.size)
-            wrappingDataSource.connections.forEach {
+            // + 1 b/c preparing Database instance required 1 connection
+            assertEquals(5 + 1, wrappingDataSource.connections.size)
+            wrappingDataSource.connections.drop(1).forEach {
                 assertTrue(it.commitCalled)
                 assertTrue(it.closeCalled)
             }

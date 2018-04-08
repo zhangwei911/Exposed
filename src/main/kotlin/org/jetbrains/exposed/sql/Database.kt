@@ -12,7 +12,7 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import javax.sql.DataSource
 
-class Database private constructor(val connector: () -> Connection) {
+class Database private constructor(val url: String , val connector: () -> Connection) {
 
     internal val metadata: DatabaseMetaData get() = TransactionManager.currentOrNull()?.connection?.metaData ?: with(connector()) {
         try {
@@ -22,8 +22,6 @@ class Database private constructor(val connector: () -> Connection) {
             close()
         }
     }
-
-    val url: String by lazy { metadata.url }
 
     var dialect : DatabaseDialect = run {
         val name = url.removePrefix("jdbc:").substringBefore(':')
@@ -81,7 +79,10 @@ class Database private constructor(val connector: () -> Connection) {
         private fun doConnect(getNewConnection: () -> Connection, setupConnection: (Connection) -> Unit = {},
                     manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_ISOLATION_LEVEL) }
         ): Database {
-            return Database {
+            val newConnection = getNewConnection()
+            val url = newConnection.metaData.url!!
+            newConnection.close()
+            return Database(url) {
                 getNewConnection().apply { setupConnection(this) }
             }.apply {
                 TransactionManager.registerManager(this, manager(this))
@@ -99,6 +100,7 @@ class Database private constructor(val connector: () -> Connection) {
         ): Database {
             return doConnect( getNewConnection, manager = manager )
         }
+
         fun connect(url: String, driver: String, user: String = "", password: String = "", setupConnection: (Connection) -> Unit = {},
                     manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_ISOLATION_LEVEL) }): Database {
             Class.forName(driver).newInstance()
