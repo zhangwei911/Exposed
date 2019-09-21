@@ -124,6 +124,58 @@ open class Transaction(private val transactionImpl: TransactionInterface): UserD
 
     fun <T> exec(stmt: Statement<T>): T? = exec(stmt, {it})
 
+    /**
+     * Provided statements will be executed in a batch.
+     * Select statements are not supported as it's impossible to return multiple results.
+     */
+    fun execInBatch(stmts: List<String>) {
+        if (stmts.isEmpty()) return
+
+        val types = stmts.map { stmt ->
+            StatementType.values().find {
+                stmt.startsWith(it.name, true)
+            } ?: StatementType.OTHER
+        }
+
+        check(types.none { it == StatementType.SELECT }) {
+            "SELECT statements are unsupported in batch execution"
+        }
+
+        val type = types.distinct().singleOrNull() ?: StatementType.OTHER
+        val prepStatement = object : Statement<Unit>(type, emptyList()) {
+
+            override fun prepared(transaction: Transaction, sql: String): PreparedStatement {
+                val originalStatement = super.prepared(transaction, sql.substringBefore('\n'))
+                val batchStatement = transaction.connection.createStatement().apply {
+                    stmts.forEach {
+                        addBatch(it)
+                    }
+                }
+                return object : PreparedStatement by originalStatement {
+                    override fun close() {
+                        batchStatement.close()
+                        originalStatement.close()
+                    }
+
+                    override fun executeUpdate(): Int {
+                        batchStatement.executeBatch()
+                        return 0
+                    }
+                }
+            }
+
+            override fun PreparedStatement.executeInternal(transaction: Transaction) {
+                executeUpdate()
+            }
+
+            override fun prepareSQL(transaction: Transaction): String = stmts.joinToString("\n")
+
+            override fun arguments(): Iterable<Iterable<Pair<ColumnType, Any?>>> = emptyList()
+        }
+
+        exec(prepStatement)
+    }
+
     fun <T, R> exec(stmt: Statement<T>, body: Statement<T>.(T) -> R): R? {
         statementCount++
 

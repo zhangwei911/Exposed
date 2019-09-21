@@ -7,11 +7,9 @@ import com.mysql.management.util.Files
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import org.h2.engine.Mode
 import org.jetbrains.exposed.sql.*
-import org.jetbrains.exposed.sql.tests.shared.assertEqualCollections
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTimeZone
-import java.lang.AssertionError
 import java.util.*
 import kotlin.concurrent.thread
 
@@ -135,12 +133,12 @@ abstract class DatabaseTestsBase {
     fun withTables (excludeSettings: List<TestDB>, vararg tables: Table, statement: Transaction.() -> Unit) {
         (TestDB.enabledInTests() - excludeSettings).forEach {
             withDb(it) {
-                SchemaUtils.create(*tables)
+                SchemaUtils.create(*tables, inBatch = true)
                 try {
                     statement()
                     commit() // Need commit to persist data before drop tables
                 } finally {
-                    SchemaUtils.drop(*tables)
+                    SchemaUtils.drop(*tables, inBatch = true)
                     commit()
                 }
             }
