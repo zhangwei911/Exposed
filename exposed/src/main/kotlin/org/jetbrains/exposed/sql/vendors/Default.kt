@@ -7,6 +7,8 @@ import java.nio.ByteBuffer
 import java.sql.ResultSet
 import java.util.*
 
+internal typealias TableAndColumnName = Pair<String, String>
+
 open class DataTypeProvider {
     open fun integerAutoincType() = "INT AUTO_INCREMENT"
 
@@ -197,7 +199,7 @@ interface DatabaseDialect {
     /**
      * returns map of constraint for a table name/column name pair
      */
-    fun columnConstraints(vararg tables: Table): Map<Pair<String, String>, List<ForeignKeyConstraint>> = emptyMap()
+    fun columnConstraints(vararg tables: Table): Map<TableAndColumnName, List<ForeignKeyConstraint>> = emptyMap()
 
     /**
      * return set of indices for each table
@@ -288,43 +290,53 @@ abstract class VendorDialect(override val name: String,
         return result
     }
 
-    private val columnConstraintsCache = HashMap<String, List<ForeignKeyConstraint>>()
+    protected val columnConstraintsCache = HashMap<String, List<ForeignKeyConstraint>>()
 
     protected fun String.quoteIdentifierWhenWrongCaseOrNecessary(tr: Transaction) =
             tr.db.identifierManager.quoteIdentifierWhenWrongCaseOrNecessary(this)
 
-    @Synchronized
-    override fun columnConstraints(vararg tables: Table): Map<Pair<String, String>, List<ForeignKeyConstraint>> {
-        val constraints = HashMap<Pair<String, String>, MutableList<ForeignKeyConstraint>>()
+    private fun Transaction.fetchConstraints(table: Table) : List<ForeignKeyConstraint> {
+        val tableConstraint = arrayListOf<ForeignKeyConstraint> ()
+        val rs = db.metadata { getImportedKeys(getDatabase(), null, table.nameInDatabaseCase()) }
+        while (rs.next()) {
+            val fromTableName = rs.getString("FKTABLE_NAME")!!
+            val fromColumnName = rs.getString("FKCOLUMN_NAME")!!.quoteIdentifierWhenWrongCaseOrNecessary(this)
+            val constraintName = rs.getString("FK_NAME")!!
+            val targetTableName = rs.getString("PKTABLE_NAME")!!
+            val targetColumnName = rs.getString("PKCOLUMN_NAME")!!.quoteIdentifierWhenWrongCaseOrNecessary(this)
+            val constraintUpdateRule = ReferenceOption.resolveRefOptionFromJdbc(rs.getInt("UPDATE_RULE"))
+            val constraintDeleteRule = ReferenceOption.resolveRefOptionFromJdbc(rs.getInt("DELETE_RULE"))
+            tableConstraint.add(
+                    ForeignKeyConstraint(constraintName,
+                            targetTableName, targetColumnName,
+                            fromTableName, fromColumnName,
+                            constraintUpdateRule, constraintDeleteRule)
+            )
+        }
+        rs.close()
+        return tableConstraint
+    }
+
+    protected fun fetchConstraintsOrFromCache(vararg tables: Table,
+                                              fetch: Transaction.(Table) -> List<ForeignKeyConstraint>) : Map<TableAndColumnName, List<ForeignKeyConstraint>> {
+        val constraints = HashMap<TableAndColumnName, MutableList<ForeignKeyConstraint>>()
         val tr = TransactionManager.current()
 
-        tables.map{ it.nameInDatabaseCase() }.forEach { table ->
-            columnConstraintsCache.getOrPut(table) {
-                val rs = tr.db.metadata { getImportedKeys(getDatabase(), null, table) }
-                val tableConstraint = arrayListOf<ForeignKeyConstraint> ()
-                while (rs.next()) {
-                    val fromTableName = rs.getString("FKTABLE_NAME")!!
-                    val fromColumnName = rs.getString("FKCOLUMN_NAME")!!.quoteIdentifierWhenWrongCaseOrNecessary(tr)
-                    val constraintName = rs.getString("FK_NAME")!!
-                    val targetTableName = rs.getString("PKTABLE_NAME")!!
-                    val targetColumnName = rs.getString("PKCOLUMN_NAME")!!.quoteIdentifierWhenWrongCaseOrNecessary(tr)
-                    val constraintUpdateRule = ReferenceOption.resolveRefOptionFromJdbc(rs.getInt("UPDATE_RULE"))
-                    val constraintDeleteRule = ReferenceOption.resolveRefOptionFromJdbc(rs.getInt("DELETE_RULE"))
-                    tableConstraint.add(
-                        ForeignKeyConstraint(constraintName,
-                                targetTableName, targetColumnName,
-                                fromTableName, fromColumnName,
-                                constraintUpdateRule, constraintDeleteRule)
-                    )
-                }
-                rs.close()
-                tableConstraint
-            }.forEach { it ->
+        tables.forEach { table ->
+            columnConstraintsCache.getOrPut(table.nameInDatabaseCase()) {
+                tr.fetch(table)
+            }.forEach {
                 constraints.getOrPut(it.fromTable to it.fromColumn){arrayListOf()}.add(it)
             }
-
         }
         return constraints
+    }
+
+    @Synchronized
+    override fun columnConstraints(vararg tables: Table): Map<TableAndColumnName, List<ForeignKeyConstraint>> {
+        return fetchConstraintsOrFromCache(*tables) {
+            fetchConstraints(it)
+        }
     }
 
     private val existingIndicesCache = HashMap<Table, List<Index>>()
