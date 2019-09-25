@@ -81,8 +81,9 @@ open class MysqlDialect : VendorDialect(dialectName, MysqlDataTypeProvider, Mysq
         val constraints = mutableMapOf<String, MutableList<ForeignKeyConstraint>>()
 
         if (nonCachedTables.isNotEmpty()) {
-            val inTableList = nonCachedTables.joinToString("','", prefix = "AND ku.TABLE_NAME IN ('", postfix = "')")
+            val inTableList = nonCachedTables.joinToString("','", prefix = " ku.TABLE_NAME IN ('", postfix = "')")
             val tr = TransactionManager.current()
+            val schemaName = "'${getDatabase()}'"
             tr.exec(
                     "SELECT\n" +
                             "  rc.CONSTRAINT_NAME,\n" +
@@ -95,7 +96,10 @@ open class MysqlDialect : VendorDialect(dialectName, MysqlDataTypeProvider, Mysq
                             "FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc\n" +
                             "  INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE ku\n" +
                             "    ON ku.TABLE_SCHEMA = rc.CONSTRAINT_SCHEMA AND rc.CONSTRAINT_NAME = ku.CONSTRAINT_NAME\n" +
-                            "WHERE ku.TABLE_SCHEMA = '${getDatabase()}' $inTableList") { rs ->
+                            "WHERE ku.TABLE_SCHEMA = $schemaName " +
+                            "   AND ku.CONSTRAINT_SCHEMA = $schemaName" +
+                            "   AND rc.CONSTRAINT_SCHEMA = $schemaName" +
+                            "   AND $inTableList") { rs ->
                 while (rs.next()) {
                     val fromTableName = rs.getString("TABLE_NAME")!!
                     if (fromTableName !in allTableNames) continue
