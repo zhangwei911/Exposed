@@ -1,6 +1,9 @@
 package org.jetbrains.exposed.sql
 
-import org.jetbrains.exposed.sql.transactions.*
+import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
+import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
+import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 import java.sql.Connection
@@ -59,13 +62,21 @@ class Database private constructor(val connector: () -> Connection) {
         private val supportsQuotedMixedId = metadata.supportsMixedCaseQuotedIdentifiers()
         val keywords = ANSI_SQL_2003_KEYWORDS + VENDORS_KEYWORDS[currentDialect.name].orEmpty() + metadata.sqlKeywords.split(',')
         private val extraNameCharacters = metadata.extraNameCharacters!!
-        private val isOracle = metadata.databaseProductName == "Oracle"
-        private val identifierLengthLimit = run {
-            if (isOracle)
-                128
-            else
-                metadata.maxColumnNameLength.takeIf { it > 0 } ?: Int.MAX_VALUE
+        private  val oracleVersion : OracleVersion = when {
+            metadata.databaseProductName != "Oracle" -> OracleVersion.NonOracle
+            metadata.databaseMajorVersion <= 11 -> OracleVersion.Oracle11g
+            else -> OracleVersion.`Oracle12+`
         }
+        private enum class OracleVersion { Oracle11g, `Oracle12+`, NonOracle }
+
+        private val identifierLengthLimit by lazy {
+            when(oracleVersion) {
+                OracleVersion.Oracle11g -> 30
+                OracleVersion.`Oracle12+` -> 128
+                else -> metadata.maxColumnNameLength.takeIf { it > 0 } ?: Int.MAX_VALUE
+            }
+        }
+
 
         val checkedIdentities = object : LinkedHashMap<String, Boolean> (100) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Boolean>?): Boolean = size >= 1000
@@ -91,7 +102,7 @@ class Database private constructor(val connector: () -> Connection) {
                 supportsMixedId -> false
                 alreadyLower && isLowerCaseIdentifiers -> false
                 alreadyUpper && isUpperCaseIdentifiers -> false
-                isOracle -> false
+                oracleVersion != OracleVersion.NonOracle -> false
                 supportsQuotedMixedId && (!alreadyLower && !alreadyUpper) -> true
                 else -> false
             }
@@ -104,7 +115,7 @@ class Database private constructor(val connector: () -> Connection) {
                 alreadyQuoted && isUpperCaseQuotedIdentifiers -> identity.toUpperCase()
                 alreadyQuoted && isLowerCaseQuotedIdentifiers -> identity.toLowerCase()
                 supportsMixedIdentifiers -> identity
-                isOracle -> identity.toUpperCase()
+                oracleVersion != OracleVersion.NonOracle -> identity.toUpperCase()
                 isUpperCaseIdentifiers -> identity.toUpperCase()
                 isLowerCaseIdentifiers -> identity.toLowerCase()
                 else -> identity
