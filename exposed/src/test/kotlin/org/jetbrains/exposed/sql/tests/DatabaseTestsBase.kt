@@ -9,6 +9,7 @@ import org.h2.engine.Mode
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.sql.transactions.transactionManager
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTimeZone
 import java.sql.Connection
@@ -116,10 +117,7 @@ abstract class DatabaseTestsBase {
 
         val database = dbSettings.db!!
 
-        val connection = database.connector()
-        val transactionIsolation = connection.metaData.defaultTransactionIsolation
-        connection.close()
-        transaction(transactionIsolation, 1, db = database) {
+        transaction(database.transactionManager.defaultIsolationLevel, 1, db = database) {
             statement()
         }
     }
