@@ -66,14 +66,14 @@ class OptionalReference<REF:Comparable<REF>, ID:Comparable<ID>, out Target : Ent
 
 internal class BackReference<ParentID:Comparable<ParentID>, out Parent:Entity<ParentID>, ChildID:Comparable<ChildID>, in Child:Entity<ChildID>, REF>
                     (reference: Column<REF>, factory: EntityClass<ParentID, Parent>) : ReadOnlyProperty<Child, Parent> {
-    private val delegate = Referrers<ChildID, Child, ParentID, Parent, REF>(reference, factory, true)
+    internal val delegate = Referrers<ChildID, Child, ParentID, Parent, REF>(reference, factory, true)
 
     override operator fun getValue(thisRef: Child, property: KProperty<*>) = delegate.getValue(thisRef.apply { thisRef.id.value }, property).single() // flush entity before to don't miss newly created entities
 }
 
 class OptionalBackReference<ParentID:Comparable<ParentID>, out Parent:Entity<ParentID>, ChildID:Comparable<ChildID>, in Child:Entity<ChildID>, REF>
                     (reference: Column<REF?>, factory: EntityClass<ParentID, Parent>) : ReadOnlyProperty<Child, Parent?> {
-    private val delegate = OptionalReferrers<ChildID, Child, ParentID, Parent, REF>(reference, factory, true)
+    internal val delegate = OptionalReferrers<ChildID, Child, ParentID, Parent, REF>(reference, factory, true)
 
     override operator fun getValue(thisRef: Child, property: KProperty<*>) = delegate.getValue(thisRef.apply { thisRef.id.value }, property).singleOrNull()  // flush entity before to don't miss newly created entities
 }
@@ -897,6 +897,18 @@ private fun <ID: Comparable<ID>> List<Entity<ID>>.preloadRelations(vararg relati
             }
             is InnerTableLink<*,*,*,*> -> {
                 refObject.target.warmUpLinkedReferences(this.map{ it.id }, refObject.table)
+            }
+            is BackReference<*, *, *, *, *> -> {
+                (refObject.delegate as Referrers<ID, Entity<ID>, *, Entity<*>, Any>).reference.let { refColumn ->
+                    val refIds = this.map { it.run { refColumn.referee<Any>()!!.lookup() } }
+                    refObject.delegate.factory.warmUpReferences(refIds, refColumn)
+                }
+            }
+            is OptionalBackReference<*, *, *, *, *> -> {
+                (refObject.delegate as OptionalReferrers<ID, Entity<ID>, *, Entity<*>, Any>).reference.let { refColumn ->
+                    val refIds = this.map { it.run { refColumn.referee<Any>()!!.lookup() } }
+                    refObject.delegate.factory.warmUpOptReferences(refIds, refColumn)
+                }
             }
             else -> error("Relation delegate has an unknown type")
         }
