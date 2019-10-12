@@ -1,3 +1,14 @@
+# 0.17.6
+Critical bug fix:
+* Outer transaction wasn't restored after inner transaction failed on exception
+
+Bug fixes:
+* ORA-00972: identifier is too long. Oracle 11g ([#654](https://github.com/JetBrains/Exposed/issues/654))
+
+Features:
+* shortParam/shortLiteral, floatParam/floatLiteral, doubleParam/doubleLiteral added ([#648](https://github.com/JetBrains/Exposed/issues/648))
+* Warmup for backReferences via `load` and `with` functions was supported
+
 # 0.17.5
 Critical bug fix:
 * Transaction isolation level wasn't applied to transaction
@@ -10,7 +21,7 @@ Features:
 * `SchemaUtils` functions (`create/createMissingTablesAndColumns/drop`) could be executed with `inBatch` flag to perform related functions in a single batch (where possible)
 
 Performance:
-*  Speed up scheme analysis within for MySQL in place where column constraints metadata is required
+* Speed up scheme analysis within for MySQL in place where column constraints metadata is required
 
 # 0.17.3
 Infrastructure:
