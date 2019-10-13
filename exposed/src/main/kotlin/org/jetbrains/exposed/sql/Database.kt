@@ -69,12 +69,10 @@ class Database private constructor(val connector: () -> Connection) {
         }
         private enum class OracleVersion { Oracle11g, `Oracle12+`, NonOracle }
 
-        private val identifierLengthLimit by lazy {
-            when(oracleVersion) {
-                OracleVersion.Oracle11g -> 30
-                OracleVersion.`Oracle12+` -> 128
-                else -> metadata.maxColumnNameLength.takeIf { it > 0 } ?: Int.MAX_VALUE
-            }
+        private val identifierLengthLimit = when(oracleVersion) {
+            OracleVersion.Oracle11g -> 30
+            OracleVersion.`Oracle12+` -> 128
+            else -> metadata.maxColumnNameLength.takeIf { it > 0 } ?: Int.MAX_VALUE
         }
 
 
