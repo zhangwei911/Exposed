@@ -32,7 +32,7 @@ class ResultRow(internal val fieldIndex: Map<Expression<*>, Int>) {
     }
 
     operator fun <T> set(c: Expression<out T>, value: T) {
-        val index = fieldIndex[c] ?: error("${c.toQueryBuilder(QueryBuilder(false))} is not in record set")
+        val index = fieldIndex[c] ?: error("$c is not in record set")
         data[index] = value
     }
 
@@ -47,7 +47,7 @@ class ResultRow(internal val fieldIndex: Map<Expression<*>, Int>) {
     private fun <T> rawToColumnValue(raw: T?, c: Expression<T>): T {
         return when {
             raw == null -> null
-            raw == NotInitializedValue -> error("${c.toQueryBuilder(QueryBuilder(false))} is not initialized yet")
+            raw == NotInitializedValue -> error("$c is not initialized yet")
             c is ExpressionAlias<T> && c.delegate is ExpressionWithColumnType<T> -> c.delegate.columnType.valueFromDB(raw)
             c is ExpressionWithColumnType<T> -> c.columnType.valueFromDB(raw)
             else -> raw
@@ -56,10 +56,9 @@ class ResultRow(internal val fieldIndex: Map<Expression<*>, Int>) {
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> getRaw(c: Expression<T>): T? =
-            data[fieldIndex[c] ?: error("${c.toQueryBuilder(QueryBuilder(false))} is not in record set")] as T?
+            data[fieldIndex[c] ?: error("$c is not in record set")] as T?
 
-    override fun toString(): String =
-            fieldIndex.entries.joinToString { "${it.key.toQueryBuilder(QueryBuilder(false))}=${data[it.value]}" }
+    override fun toString(): String = fieldIndex.entries.joinToString { "${it.key}=${data[it.value]}" }
 
     internal object NotInitializedValue
 
@@ -249,7 +248,7 @@ open class Query(set: FieldSet, where: Op<Boolean>?): SizedIterable<ResultRow>, 
         val oop = Op.build { op() }
         if (having != null) {
             val fake = QueryBuilder(false)
-            error ("HAVING clause is specified twice. Old value = '${having!!.toQueryBuilder(fake)}', new value = '${oop.toQueryBuilder(fake)}'")
+            error ("HAVING clause is specified twice. Old value = '$having', new value = '$oop'")
         }
         having = oop
         return this
