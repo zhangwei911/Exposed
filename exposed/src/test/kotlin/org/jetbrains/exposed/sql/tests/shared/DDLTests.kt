@@ -173,17 +173,12 @@ class DDLTests : DatabaseTestsBase() {
             val id = integer("id").autoIncrement()
             val name = varchar("name", 42).primaryKey()
             val age = integer("age").nullable()
-            // not applicable in H2 database
-            //            val testCollate = varchar("testCollate", 2, "ascii_general_ci")
         }
 
-        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.ORACLE, TestDB.MARIADB), tables = *arrayOf(TestTable)) {
-            val shortAutoIncType = if (currentDialect is SQLiteDialect)
-                currentDialect.dataTypeProvider.integerAutoincType().replace(" AUTOINCREMENT", "")
-            else
-                currentDialect.dataTypeProvider.integerAutoincType()
+        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.ORACLE, TestDB.MARIADB, TestDB.SQLITE), tables = *arrayOf(TestTable)) {
             assertEquals("CREATE TABLE " + addIfNotExistsIfSupported() + "${"different_column_types".inProperCase()} " +
-                    "(${"id".inProperCase()} $shortAutoIncType NOT NULL, \"${"name".inProperCase()}\" VARCHAR(42) PRIMARY KEY, " +
+                    "(${"id".inProperCase()} ${currentDialect.dataTypeProvider.integerAutoincType()} NOT NULL, " +
+                    "\"${"name".inProperCase()}\" VARCHAR(42) PRIMARY KEY, " +
                     "${"age".inProperCase()} ${currentDialect.dataTypeProvider.integerType()} NULL)", TestTable.ddl)
         }
     }

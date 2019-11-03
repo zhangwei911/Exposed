@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql
 
+import org.jetbrains.exposed.exceptions.throwUnsupportedException
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
@@ -61,10 +62,12 @@ class Column<T>(val table: Table, val name: String, override val columnType: ICo
         append(" ")
         val isPKColumn = indexInPK != null
         val colType = columnType
-        if (currentDialect is SQLiteDialect && colType.isAutoInc && table.columns.any{ it.indexInPK != null}) {
-            append(colType.sqlType().removeSuffix(" AUTOINCREMENT")) // Workaround as SQLite Doesn't support both PK and autoInc in DDL
-        } else {
-            append(colType.sqlType())
+        val isSQLiteAutoIncColumn = currentDialect is SQLiteDialect && colType.isAutoInc
+
+        when {
+            !isPKColumn && isSQLiteAutoIncColumn -> tr.throwUnsupportedException("Auto-increment could be applied only to primary key column")
+            isSQLiteAutoIncColumn && !isOneColumnPK() && table.columns.any{ it.indexInPK != null} -> append(currentDialect.dataTypeProvider.integerType())
+            else -> append(colType.sqlType())
         }
 
         val _dbDefaultValue = dbDefaultValue
@@ -88,7 +91,7 @@ class Column<T>(val table: Table, val name: String, override val columnType: ICo
             append(" NOT NULL")
         }
 
-        if (isOneColumnPK()) {
+        if (isOneColumnPK() && !isSQLiteAutoIncColumn) {
             append(" PRIMARY KEY")
         }
     }
