@@ -103,7 +103,7 @@ private fun Transaction.commitInAsync() {
             commit()
             try {
                 currentStatement?.let {
-                    it.closeIfPossible()
+                    it.close()
                     currentStatement = null
                 }
                 closeExecutedStatements()
