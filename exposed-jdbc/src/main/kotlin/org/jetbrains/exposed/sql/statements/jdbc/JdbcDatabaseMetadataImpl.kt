@@ -19,10 +19,11 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
 
     override val currentScheme: String by lazyMetadata {
         try {
-            if (metadata.databaseProductName == "MySQL")
-                connection.catalog.orEmpty()
-            else
-                connection.schema.orEmpty()
+            when (metadata.driverName) {
+                "pgjdbc-ng" -> "public" // Should be removed after https://github.com/impossibl/pgjdbc-ng/pull/354 will be released
+                "MySQL Connector Java" -> connection.catalog.orEmpty()
+                else -> connection.schema.orEmpty()
+            }
         } catch (e: Throwable) { "" }
     }
 
