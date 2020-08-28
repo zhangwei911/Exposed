@@ -16,7 +16,7 @@ class ConnectionTests : DatabaseTestsBase() {
 
     @Test
     fun testGettingColumnMetadata() {
-        withDb (TestDB.H2){
+        withDb (TestDB.Jdbc.H2){
             SchemaUtils.create(People)
 
             val columnMetadata = connection.metadata {
@@ -40,7 +40,7 @@ class ConnectionTests : DatabaseTestsBase() {
         val child = object : LongIdTable("child") {
             val scale = reference("scale", parent.scale)
         }
-        withTables(listOf(TestDB.MYSQL), child) {
+        withTables(listOf(TestDB.Jdbc.MYSQL), child) {
             val constraints = connection.metadata {
                 tableConstraints(listOf(child))
             }

@@ -159,7 +159,7 @@ class EntityTests: DatabaseTestsBase() {
 
     @Test fun testNewWithIdAndRefresh() {
         val objectsToVerify = arrayListOf<Pair<Human, TestDB>>()
-        withTables(listOf(TestDB.SQLSERVER), Humans) { testDb ->
+        withTables(listOf(TestDB.Jdbc.SQLSERVER), Humans) { testDb ->
             val x = Human.new(2) {
                 h = "foo"
             }
@@ -519,7 +519,7 @@ class EntityTests: DatabaseTestsBase() {
 
     @Test fun `test new(id) with get`() {
         // SQL Server doesn't support an explicit id for auto-increment table
-        withTables(listOf(TestDB.SQLSERVER), Parents, Children) {
+        withTables(listOf(TestDB.Jdbc.SQLSERVER), Parents, Children) {
             val parentId = Parent.new {
                 name = "parent1"
             }.id.value

@@ -22,7 +22,7 @@ class CreateIndexTests : DatabaseTestsBase() {
             val byName = index("test_table_by_name", false, name)
         }
 
-        withTables(excludeSettings = listOf(TestDB.H2_MYSQL), tables = arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2_MYSQL), tables = arrayOf(TestTable)) {
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertTrue(TestTable.exists())
             SchemaUtils.drop(TestTable)
@@ -39,7 +39,7 @@ class CreateIndexTests : DatabaseTestsBase() {
             val byNameHash = index("test_table_by_name", /* isUnique = */ false, name, indexType = "HASH")
         }
 
-        withTables(excludeSettings = listOf(TestDB.H2_MYSQL, TestDB.SQLSERVER, TestDB.ORACLE), tables = arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.SQLSERVER, TestDB.Jdbc.ORACLE), tables = arrayOf(TestTable)) {
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertTrue(TestTable.exists())
         }
@@ -55,7 +55,7 @@ class CreateIndexTests : DatabaseTestsBase() {
             val byNameHash = index("test_table_by_name", /* isUnique = */ false, name, indexType = "NONCLUSTERED")
         }
 
-        withDb(TestDB.SQLSERVER) {
+        withDb(TestDB.Jdbc.SQLSERVER) {
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertTrue(TestTable.exists())
             SchemaUtils.drop(TestTable)
@@ -73,7 +73,8 @@ class CreateIndexTests : DatabaseTestsBase() {
         }
         val schema1 = Schema("Schema1")
         val schema2 = Schema("Schema2")
-        withSchemas(listOf(TestDB.SQLITE, TestDB.SQLSERVER), schema1, schema2) {
+        val tests = TestDB.values().filterIsInstance<TestDB.Rdbc>() + listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.SQLSERVER)
+        withSchemas(tests, schema1, schema2) {
             SchemaUtils.setSchema(schema1)
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertEquals(true, TestTable.exists())

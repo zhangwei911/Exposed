@@ -71,7 +71,7 @@ class DDLTests : DatabaseTestsBase() {
     }
 
     @Test fun unnamedTableWithQuotesSQL() {
-        withTables(excludeSettings = listOf(TestDB.SQLITE), tables = *arrayOf(UnnamedTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.SQLITE), tables = arrayOf(UnnamedTable)) {
             val q = db.identifierManager.quoteString
             val tableName = if (currentDialectTest.needsQuotesWhenSymbolsInNames) { "$q${"UnnamedTable$1".inProperCase()}$q" } else { "UnnamedTable$1".inProperCase() }
             assertEquals("CREATE TABLE " + addIfNotExistsIfSupported() + "$tableName " +
@@ -80,7 +80,7 @@ class DDLTests : DatabaseTestsBase() {
     }
 
     @Test fun unnamedTableWithQuotesSQLInSQLite() {
-        withDb(TestDB.SQLITE) {
+        withDb(TestDB.Jdbc.SQLITE) {
             val q = db.identifierManager.quoteString
             val tableName = if (currentDialectTest.needsQuotesWhenSymbolsInNames) { "$q${"UnnamedTable$1".inProperCase()}$q" } else { "UnnamedTable$1".inProperCase() }
             assertEquals("CREATE TABLE " + addIfNotExistsIfSupported() + "$tableName " +
@@ -92,7 +92,7 @@ class DDLTests : DatabaseTestsBase() {
         val TestTable = object : Table("test_named_table") {
         }
 
-        withDb (TestDB.H2 ) {
+        withDb (TestDB.Jdbc.H2) {
             assertEquals("CREATE TABLE IF NOT EXISTS ${"test_named_table".inProperCase()}", TestTable.ddl)
             DMLTestsData.Users.select {
                 exists(DMLTestsData.UserData.select { DMLTestsData.Users.id eq DMLTestsData.UserData.user_id })
@@ -109,7 +109,7 @@ class DDLTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(name)
         }
 
-        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.ORACLE, TestDB.MARIADB, TestDB.SQLITE), tables = *arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.MYSQL, TestDB.Jdbc.ORACLE, TestDB.Jdbc.MARIADB, TestDB.Jdbc.SQLITE), tables = arrayOf(TestTable)) {
             assertEquals("CREATE TABLE " + addIfNotExistsIfSupported() + "${"different_column_types".inProperCase()} " +
                     "(${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerAutoincType()} NOT NULL, " +
                     "\"${"name".inProperCase()}\" VARCHAR(42) PRIMARY KEY, " +
@@ -126,7 +126,7 @@ class DDLTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(id, name)
         }
 
-        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.SQLITE), tables = *arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.MYSQL, TestDB.Jdbc.SQLITE), tables = arrayOf(TestTable)) {
             val q = db.identifierManager.quoteString
             val tableDescription = "CREATE TABLE " + addIfNotExistsIfSupported() + "with_different_column_types".inProperCase()
             val idDescription = "${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerType()}"
@@ -147,7 +147,7 @@ class DDLTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(id, name)
         }
 
-        withDb(TestDB.SQLITE) {
+        withDb(TestDB.Jdbc.SQLITE) {
             val q = db.identifierManager.quoteString
 
             val tableDescription = "CREATE TABLE " + addIfNotExistsIfSupported() + "with_different_column_types".inProperCase()
@@ -342,7 +342,7 @@ class DDLTests : DatabaseTestsBase() {
 
         fun SizedIterable<ResultRow>.readAsString() = map { String(it[tableWithBinary.binaryColumn]) }
 
-        withDb(listOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)) {
+        withDb(listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
             val exposedBytes = "Exposed".toByteArray()
             val kotlinBytes = "Kotlin".toByteArray()
 
@@ -401,7 +401,7 @@ class DDLTests : DatabaseTestsBase() {
     }
 
     @Test fun testEscapeStringColumnType() {
-        withDb(TestDB.H2) {
+        withDb(TestDB.Jdbc.H2) {
             assertEquals("VARCHAR(255) COLLATE utf8_general_ci", VarCharColumnType(collate = "utf8_general_ci").sqlType())
             assertEquals("VARCHAR(255) COLLATE injected''code", VarCharColumnType(collate = "injected'code").sqlType())
             assertEquals("'value'", VarCharColumnType().nonNullValueToString("value"))
@@ -606,7 +606,7 @@ class DDLTests : DatabaseTestsBase() {
             val negative = integer("negative").check("subZero") { it less 0 }
         }
 
-        withTables(listOf(TestDB.MYSQL), checkTable) {
+        withTables(listOf(TestDB.Jdbc.MYSQL), checkTable) {
             checkTable.insert {
                 it[positive] = 42
                 it[negative] = -14
@@ -640,7 +640,7 @@ class DDLTests : DatabaseTestsBase() {
             }
         }
 
-        withTables(listOf(TestDB.MYSQL), checkTable) {
+        withTables(listOf(TestDB.Jdbc.MYSQL), checkTable) {
             checkTable.insert {
                 it[positive] = 57
                 it[negative] = -32
@@ -708,7 +708,7 @@ class DDLTests : DatabaseTestsBase() {
     fun createTableWithForeignKeyToAnotherSchema() {
         val one = Schema("one")
         val two = Schema("two")
-        withSchemas(excludeSettings = listOf(TestDB.SQLITE), schemas = arrayOf(two, one)) {
+        withSchemas(excludeSettings = listOf(TestDB.Jdbc.SQLITE), schemas = arrayOf(two, one)) {
             SchemaUtils.create(TableFromSchemeOne, TableFromSchemeTwo)
             val idFromOne = TableFromSchemeOne.insertAndGetId { }
 

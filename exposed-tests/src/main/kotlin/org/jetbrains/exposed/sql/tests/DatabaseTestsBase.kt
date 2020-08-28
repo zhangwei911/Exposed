@@ -1,47 +1,101 @@
 package org.jetbrains.exposed.sql.tests
 
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
+import io.r2dbc.h2.H2ConnectionFactory
 import org.h2.engine.Mode
+import org.jetbrains.exposed.jdbc.connect
+import org.jetbrains.exposed.rdbc.connect
 import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
+import org.reactivestreams.Publisher
 import org.testcontainers.containers.MySQLContainer
 import java.sql.Connection
 import java.util.*
 import kotlin.concurrent.thread
+import kotlin.reflect.KClass
+import kotlin.reflect.KVisibility
 
-enum class TestDB(val connection: () -> String, val driver: String, val user: String = "root", val pass: String = "",
-                  val beforeConnection: () -> Unit = {}, val afterTestFinished: () -> Unit = {}, var db: Database? = null) {
-    H2({"jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;"}, "org.h2.Driver"),
-    H2_MYSQL({"jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1"}, "org.h2.Driver", beforeConnection = {
-        Mode.getInstance("MySQL").convertInsertNullToZero = false
-    }),
-    SQLITE({"jdbc:sqlite:file:test?mode=memory&cache=shared"}, "org.sqlite.JDBC"),
-    MYSQL(
-        connection = {
-            if (runTestContainersMySQL()) {
-                "${mySQLProcess.jdbcUrl}?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useSSL=false"
-            } else {
-                val host = System.getProperty("exposed.test.mysql.host") ?: System.getProperty("exposed.test.mysql8.host")
-                val port = System.getProperty("exposed.test.mysql.port") ?: System.getProperty("exposed.test.mysql8.port")
-                host.let { dockerHost ->
-                    "jdbc:mysql://$dockerHost:$port/testdb?useSSL=false&characterEncoding=UTF-8"
+sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished: () -> Unit = {}) {
+    lateinit var db: Database
+
+    protected abstract fun initDatabase() : Database
+
+    open val name : String get() = this::class.simpleName!!
+
+    fun connect() : Database {
+        db = initDatabase()
+        return db
+    }
+
+    sealed class Jdbc(
+        val connection: () -> String,
+        val driver: String,
+        val user: String = "root",
+        val pass: String = "",
+        beforeConnection: () -> Unit = {},
+        afterTestFinished: () -> Unit = {}
+    ) : TestDB(beforeConnection, afterTestFinished) {
+        override fun initDatabase() = Database.connect(connection(), user = user, password = pass, driver = driver)
+
+        object H2 : Jdbc({ "jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver") {
+            override fun initDatabase(): Database = super.initDatabase().apply { transactionManager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED }
+        }
+
+        object H2_MYSQL : Jdbc({ "jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1" }, "org.h2.Driver") {
+            override fun initDatabase(): Database = super.initDatabase().apply { transactionManager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED }
+        }
+
+        internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver") {
+            override fun initDatabase(): Database = super.initDatabase().apply { transactionManager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED }
+        }
+
+        object SQLITE : Jdbc({ "jdbc:sqlite:file:test?mode=memory&cache=shared" }, "org.sqlite.JDBC")
+
+        object MYSQL : Jdbc(
+            connection = {
+                if (runTestContainersMySQL()) {
+                    "${mySQLProcess.jdbcUrl}?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useSSL=false"
+                } else {
+                    val host = System.getProperty("exposed.test.mysql.host") ?: System.getProperty("exposed.test.mysql8.host")
+                    val port = System.getProperty("exposed.test.mysql.port") ?: System.getProperty("exposed.test.mysql8.port")
+                    host.let { dockerHost ->
+                        "jdbc:mysql://$dockerHost:$port/testdb?useSSL=false&characterEncoding=UTF-8"
+                    }
                 }
-            }
-        },
-        user = "root",
-        pass = if (runTestContainersMySQL()) "test" else "",
-        driver = "com.mysql.jdbc.Driver",
-        beforeConnection = { if (runTestContainersMySQL()) mySQLProcess },
-        afterTestFinished = { if (runTestContainersMySQL()) mySQLProcess.close() }
-    ),
-    POSTGRESQL({"jdbc:postgresql://localhost:12346/template1?user=postgres&password=&lc_messages=en_US.UTF-8"}, "org.postgresql.Driver",
-            beforeConnection = { postgresSQLProcess }, afterTestFinished = { postgresSQLProcess.close() }),
-    POSTGRESQLNG({"jdbc:pgsql://localhost:12346/template1?user=postgres&password="}, "com.impossibl.postgres.jdbc.PGDriver",
-            user = "postgres", beforeConnection = { postgresSQLProcess }, afterTestFinished = { postgresSQLProcess.close() }),
-    ORACLE(driver = "oracle.jdbc.OracleDriver", user = "ExposedTest", pass = "12345",
-            connection = {"jdbc:oracle:thin:@//${System.getProperty("exposed.test.oracle.host", "localhost")}" +
-                    ":${System.getProperty("exposed.test.oracle.port", "1521")}/XEPDB1"},
+            },
+            user = "root",
+            pass = if (runTestContainersMySQL()) "test" else "",
+            driver = "com.mysql.jdbc.Driver",
+            beforeConnection = { if (runTestContainersMySQL()) mySQLProcess },
+            afterTestFinished = { if (runTestContainersMySQL()) mySQLProcess.close() }
+        )
+
+
+        object POSTGRESQL : Jdbc(
+            connection = { "jdbc:postgresql://localhost:12346/template1?user=postgres&password=&lc_messages=en_US.UTF-8" },
+            driver = "org.postgresql.Driver",
+            user = "postgres",
+            beforeConnection = { postgresSQLProcess },
+            afterTestFinished = { postgresSQLProcess.close() }
+        )
+
+        object POSTGRESQLNG : Jdbc(
+            connection = { "jdbc:pgsql://localhost:12346/template1?user=postgres&password=" },
+            driver = "com.impossibl.postgres.jdbc.PGDriver",
+            user = "postgres",
+            beforeConnection = { postgresSQLProcess },
+            afterTestFinished = { postgresSQLProcess.close() }
+        )
+
+        object ORACLE : Jdbc(
+            driver = "oracle.jdbc.OracleDriver",
+            user = "ExposedTest",
+            pass = "12345",
+            connection = {
+                "jdbc:oracle:thin:@//${System.getProperty("exposed.test.oracle.host", "localhost")}:${System.getProperty("exposed.test.oracle.port", "1521")}/XEPDB1"
+            },
             beforeConnection = {
                 Locale.setDefault(Locale.ENGLISH)
                 val tmp = Database.connect(ORACLE.connection(), user = "sys as sysdba", password = "Oracle18", driver = ORACLE.driver)
@@ -55,26 +109,78 @@ enum class TestDB(val connection: () -> String, val driver: String, val user: St
                     exec("grant all privileges to ExposedTest")
                 }
                 Unit
-            }),
+            }
+        )
 
-    SQLSERVER({"jdbc:sqlserver://${System.getProperty("exposed.test.sqlserver.host", "192.168.99.100")}" +
-            ":${System.getProperty("exposed.test.sqlserver.port", "32781")}"},
-            "com.microsoft.sqlserver.jdbc.SQLServerDriver", "SA", "yourStrong(!)Password"),
+        object SQLSERVER : Jdbc(
+            connection = {
+                "jdbc:sqlserver://${System.getProperty("exposed.test.sqlserver.host", "192.168.99.100")}:${
+                    System.getProperty(
+                        "exposed.test.sqlserver.port",
+                        "32781"
+                    )
+                }"
+            },
+            driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+            user = "SA",
+            pass = "yourStrong(!)Password"
+        )
 
-    MARIADB({"jdbc:mariadb://${System.getProperty("exposed.test.mariadb.host", "192.168.99.100")}" +
-            ":${System.getProperty("exposed.test.mariadb.port", "3306")}/testdb"},
-            "org.mariadb.jdbc.Driver");
+        object MARIADB : Jdbc(
+            connection = {
+                "jdbc:mariadb://${System.getProperty("exposed.test.mariadb.host", "192.168.99.100")}:${
+                    System.getProperty(
+                        "exposed.test.mariadb.port",
+                        "3306"
+                    )
+                }/testdb"
+            },
+            driver = "org.mariadb.jdbc.Driver"
+        )
+    }
 
-    fun connect() = Database.connect(connection(), user = user, password = pass, driver = driver)
+    sealed class Rdbc(
+        val connection: () -> Publisher<out io.r2dbc.spi.Connection>,
+        val jdbc: Jdbc
+    ) : TestDB({}, {}) {
+
+        override val name: String  = "RDBC.${super.name}"
+
+        override fun initDatabase(): Database {
+            val jdbcDb = jdbc.connect()
+            val rdbcConnection = connection()
+            return Database.connect(
+                connection = rdbcConnection,
+                jdbcConnection = {
+                    (jdbcDb.connector() as JdbcConnectionImpl).connection
+                }
+            )
+        }
+
+        object H2 : Rdbc(
+            connection = {
+                H2ConnectionFactory.inMemory("rdbc", Jdbc.H2_RDBC.user, Jdbc.H2_RDBC.pass).create()
+            },
+            jdbc = Jdbc.H2_RDBC
+        )
+    }
 
     companion object {
+        private fun <T:Any> KClass<out T>.recursiveSealedSubclasses(): List<T> = sealedSubclasses.map { clazz ->
+            clazz.takeIf { it.visibility == KVisibility.PUBLIC }?.objectInstance?.let { listOf(it) } ?: clazz.recursiveSealedSubclasses()
+        }.flatten()
+
+        private val values by lazy { TestDB::class.recursiveSealedSubclasses() }
+
+        fun values() : List<TestDB> = values
+
         fun enabledInTests(): List<TestDB> {
-            val embeddedTests = (TestDB.values().toList() - ORACLE - SQLSERVER - MARIADB).joinToString()
+            val embeddedTests = (values - Jdbc.ORACLE - Jdbc.SQLSERVER - Jdbc.MARIADB).joinToString { it.name }
             val concreteDialects = System.getProperty("exposed.test.dialects", embeddedTests).let {
                 if (it == "") emptyList()
                 else it.split(',').map { it.trim().toUpperCase() }
             }
-            return values().filter { concreteDialects.isEmpty() || it.name in concreteDialects }
+            return values.filter { concreteDialects.isEmpty() || it.name in concreteDialects }
         }
     }
 }
@@ -121,10 +227,10 @@ abstract class DatabaseTestsBase {
                 registeredOnShutdown.remove(dbSettings)
             })
             registeredOnShutdown += dbSettings
-            dbSettings.db = dbSettings.connect()
+            dbSettings.connect()
         }
 
-        val database = dbSettings.db!!
+        val database = dbSettings.db
 
         transaction(database.transactionManager.defaultIsolationLevel, 1, db = database) {
             statement(dbSettings)
@@ -146,7 +252,6 @@ abstract class DatabaseTestsBase {
     fun withTables (excludeSettings: List<TestDB>, vararg tables: Table, statement: Transaction.(TestDB) -> Unit) {
         (TestDB.enabledInTests() - excludeSettings).forEach { testDB ->
             withDb(testDB) {
-                addLogger(StdOutSqlLogger)
                 SchemaUtils.create(*tables)
                 try {
                     statement(testDB)
@@ -167,7 +272,7 @@ abstract class DatabaseTestsBase {
                     statement()
                     commit() // Need commit to persist data before drop schemas
                 } finally {
-                    val cascade = it != TestDB.SQLSERVER
+                    val cascade = it != TestDB.Jdbc.SQLSERVER
                     SchemaUtils.dropSchema(*schemas, cascade = cascade)
                     commit()
                 }
@@ -175,9 +280,9 @@ abstract class DatabaseTestsBase {
         }
     }
 
-    fun withTables (vararg tables: Table, statement: Transaction.(TestDB) -> Unit) = withTables(excludeSettings = emptyList(), tables = *tables, statement = statement)
+    fun withTables (vararg tables: Table, statement: Transaction.(TestDB) -> Unit) = withTables(excludeSettings = emptyList(), tables = tables, statement = statement)
 
-    fun withSchemas (vararg schemas: Schema, statement: Transaction.() -> Unit) = withSchemas(excludeSettings = emptyList(), schemas = *schemas, statement = statement)
+    fun withSchemas (vararg schemas: Schema, statement: Transaction.() -> Unit) = withSchemas(excludeSettings = emptyList(), schemas = schemas, statement = statement)
 
     fun addIfNotExistsIfSupported() = if (currentDialectTest.supportsIfNotExists) {
         "IF NOT EXISTS "

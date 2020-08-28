@@ -179,7 +179,7 @@ class DefaultsTest : DatabaseTestsBase() {
             else -> "NULL"
         }
 
-        withTables(listOf(TestDB.SQLITE), TestTable) {
+        withTables(listOf(TestDB.Jdbc.SQLITE), TestTable) {
             val dtType = currentDialectTest.dataTypeProvider.dateTimeType()
             val longType = currentDialectTest.dataTypeProvider.longType()
             val q = db.identifierManager.quoteString
@@ -286,15 +286,48 @@ class DefaultsTest : DatabaseTestsBase() {
         }
 
         withTables(foo) {
-            val tr = TransactionManager.current()
-            tr.addLogger(StdOutSqlLogger)
-
             val dt2020 = LocalDateTime.of(2020, 1, 1, 1, 1)
             foo.insert { it[dt] = LocalDateTime.of(2019, 1, 1, 1, 1) }
             foo.insert { it[dt] = dt2020 }
             foo.insert { it[dt] = LocalDateTime.of(2021, 1, 1, 1, 1) }
             val count = foo.select { foo.dt.between(dt2020.minusWeeks(1), dt2020.plusWeeks(1)) }.count()
             assertEquals(1, count)
+        }
+    }
+
+    @Test
+    fun testBetweenFunction2() {
+        val foo = object : IntIdTable("foo") {
+            val dt = datetime("dateTime").defaultExpression(CurrentDateTime())
+        }
+
+        withTables(foo) {
+            val dt2020 = LocalDateTime.now()//DateTime(2020, 1, 1, 1, 1)
+            foo.insert {/* it[dt] = DateTime(2019, 1, 1, 1, 1)*/ }
+            foo.insert { /*it[dt] = dt2020*/ }
+            foo.insert { /*it[dt] = DateTime(2021, 1, 1, 1, 1) */ }
+            addLogger(StdOutSqlLogger)
+            foo.selectAll().forEach {
+                println(it[foo.dt])
+            }
+            val count = foo.select { foo.dt.between(dt2020.minusWeeks(1), dt2020.plusWeeks(1)) }.count()
+            assertEquals(3, count)
+        }
+    }
+
+    @Test
+    fun testGreaterFunction() {
+        val foo = object : IntIdTable("foo") {
+            val dt = datetime("dateTime")
+        }
+
+        withTables(foo) {
+            val dt2020 = LocalDateTime.of(2020, 1, 1, 1, 1)
+            foo.insert { it[dt] = LocalDateTime.of(2019, 1, 1, 1, 1) }
+            foo.insert { it[dt] = dt2020 }
+            foo.insert { it[dt] = LocalDateTime.of(2021, 1, 1, 1, 1) }
+            val count = foo.select { foo.dt.greaterEq(dt2020) }.count()
+            assertEquals(2, count)
         }
     }
 }

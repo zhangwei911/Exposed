@@ -37,7 +37,7 @@ class EnumerationTests : DatabaseTestsBase() {
 
     @Test
     fun testCustomEnumeration01() {
-        withDb(listOf(TestDB.H2, TestDB.MYSQL, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)) {
+        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
             val sqlType = when (currentDialectTest) {
                 is H2Dialect, is MysqlDialect -> "ENUM('Bar', 'Baz')"
                 is PostgreSQLDialect -> "FooEnum"
@@ -86,7 +86,7 @@ class EnumerationTests : DatabaseTestsBase() {
 
     @Test
     fun testCustomEnumerationWithDefaultValue() {
-        withDb(listOf(TestDB.H2, TestDB.MYSQL, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)) {
+        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
             val sqlType = when (currentDialectTest) {
                 is H2Dialect, is MysqlDialect -> "ENUM('Bar', 'Baz')"
                 is PostgreSQLDialect -> "FooEnum2"

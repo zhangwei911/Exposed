@@ -45,7 +45,7 @@ class InsertTests : DatabaseTestsBase() {
     }
 
     private val insertIgnoreSupportedDB = TestDB.values().toList() -
-            listOf(TestDB.SQLITE, TestDB.MYSQL, TestDB.H2_MYSQL, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)
+            listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
 
     @Test
     fun testInsertIgnoreAndGetId01() {
@@ -104,7 +104,7 @@ class InsertTests : DatabaseTestsBase() {
         }
 
         val insertIgnoreSupportedDB = TestDB.values().toList() -
-                listOf(TestDB.SQLITE, TestDB.MYSQL, TestDB.H2_MYSQL, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)
+                listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
         withTables(insertIgnoreSupportedDB, idTable) {
             val id = idTable.insertIgnore {
                 it[idTable.id] = EntityID(1, idTable)
@@ -311,7 +311,7 @@ class InsertTests : DatabaseTestsBase() {
         }
         val emojis = "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC67\uD83C\uDFFF\u200D\uD83D\uDC66\uD83C\uDFFF"
 
-        withTables(listOf(TestDB.H2, TestDB.H2_MYSQL, TestDB.SQLSERVER), table) {
+        withTables(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Rdbc.H2, TestDB.Jdbc.SQLSERVER), table) {
             val isOldMySQL = currentDialectTest is MysqlDialect && db.isVersionCovers(BigDecimal("5.5"))
             if (isOldMySQL) {
                 exec("ALTER TABLE ${table.nameInDatabaseCase()} DEFAULT CHARSET utf8mb4, MODIFY emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
@@ -330,7 +330,7 @@ class InsertTests : DatabaseTestsBase() {
         }
         val emojis = "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC67\uD83C\uDFFF\u200D\uD83D\uDC66\uD83C\uDFFF"
 
-        withTables(listOf(TestDB.SQLITE, TestDB.H2, TestDB.H2_MYSQL, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG), table) {
+        withTables(listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG), table) {
             expectException<IllegalArgumentException> {
                 table.insert {
                     it[table.emoji] = emojis

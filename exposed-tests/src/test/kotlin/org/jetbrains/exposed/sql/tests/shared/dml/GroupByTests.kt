@@ -155,7 +155,7 @@ class GroupByTests : DatabaseTestsBase() {
 
     @Test
     fun testGroupConcat() {
-        withCitiesAndUsers(listOf(TestDB.SQLITE)) { cities, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.SQLITE)) { cities, users, _ ->
             fun <T : String?> GroupConcat<T>.checkExcept(vararg dialects: KClass<out DatabaseDialect>, assert: (Map<String, String?>) ->Unit) {
                 try {
                     val result = cities.leftJoin(users)

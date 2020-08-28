@@ -100,7 +100,7 @@ class CoroutineTests : DatabaseTestsBase() {
         suspend fun insertTesting(db : Database) = newSuspendedTransaction(db = db) {
             Testing.insert {}
         }
-        withTables(listOf(TestDB.SQLITE), Testing) {
+        withTables(listOf(TestDB.Jdbc.SQLITE), Testing) {
             val mainJob = GlobalScope.async {
 
                 val job = launch(Dispatchers.IO) {
@@ -130,7 +130,7 @@ class CoroutineTests : DatabaseTestsBase() {
 
     @Test @RepeatableTest(10)
     fun nestedSuspendAsyncTxTest() {
-        withTables(listOf(TestDB.H2, TestDB.H2_MYSQL, TestDB.SQLITE), Testing) {
+        withTables(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.SQLITE), Testing) {
             val mainJob = GlobalScope.async {
                 val job = launch(Dispatchers.IO) {
                     newSuspendedTransaction(db = db) {
@@ -162,7 +162,7 @@ class CoroutineTests : DatabaseTestsBase() {
 
     @Test @RepeatableTest(10)
     fun awaitAllTest() {
-        withTables(listOf(TestDB.SQLITE), Testing) {
+        withTables(listOf(TestDB.Jdbc.SQLITE), Testing) {
             val mainJob = GlobalScope.async {
 
                 val results = (1..5).map { indx ->

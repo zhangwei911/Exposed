@@ -96,7 +96,7 @@ class CreateTableTests : DatabaseTestsBase() {
 
     @Test
     fun addCompositePrimaryKeyToTableH2Test() {
-        withDb(TestDB.H2) {
+        withDb(TestDB.Jdbc.H2) {
             val tableName = Person.tableName
             val tableProperName = tableName.inProperCase()
             val id1ProperName = Person.id1.name.inProperCase()
@@ -116,7 +116,7 @@ class CreateTableTests : DatabaseTestsBase() {
 
     @Test
     fun addCompositePrimaryKeyToTableNotH2Test() {
-        withTables(excludeSettings = listOf(TestDB.H2, TestDB.H2_MYSQL), tables = *arrayOf(Person)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Rdbc.H2), tables = arrayOf(Person)) {
             val tableName = Person.tableName
             val tableProperName = tableName.inProperCase()
             val id1ProperName = Person.id1.name.inProperCase()
@@ -135,7 +135,7 @@ class CreateTableTests : DatabaseTestsBase() {
 
     @Test
     fun addOneColumnPrimaryKeyToTableNotH2Test() {
-        withTables(excludeSettings = listOf(TestDB.H2, TestDB.H2_MYSQL), tables = *arrayOf(Book)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Rdbc.H2), tables = *arrayOf(Book)) {
             val tableProperName = Book.tableName.inProperCase()
             val pkConstraintName = Book.primaryKey.name
             val id1ProperName = Book.id.name.inProperCase()
@@ -295,7 +295,7 @@ class CreateTableTests : DatabaseTestsBase() {
     @Test
     fun `test create table with same name in different schemas`() {
         val one = Schema("one")
-        withDb(excludeSettings = listOf(TestDB.SQLITE)) { testDb ->
+        withDb(excludeSettings = listOf(TestDB.Jdbc.SQLITE)) { testDb ->
             assertEquals(false, OneTable.exists())
             assertEquals(false, OneOneTable.exists())
             try {
@@ -309,7 +309,7 @@ class CreateTableTests : DatabaseTestsBase() {
                 assertEquals(true, OneOneTable.exists())
             } finally {
                 SchemaUtils.drop(OneTable, OneOneTable)
-                val cascade = testDb != TestDB.SQLSERVER
+                val cascade = testDb != TestDB.Jdbc.SQLSERVER
                 SchemaUtils.dropSchema(one, cascade = cascade)
             }
         }

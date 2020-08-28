@@ -15,7 +15,7 @@ class MysqlTests : DatabaseTestsBase() {
     
     @Test
     fun testEmbeddedConnection() {
-        withDb(TestDB.MYSQL) {
+        withDb(TestDB.Jdbc.MYSQL) {
             assertFalse(TransactionManager.current().exec("SELECT VERSION();") { it.next(); it.getString(1) }.isNullOrEmpty())
         }
     }

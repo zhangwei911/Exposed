@@ -29,7 +29,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(id)
         }
 
-        withTables(excludeSettings = listOf(TestDB.H2_MYSQL), tables = *arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2_MYSQL), tables = *arrayOf(TestTable)) {
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertTrue(TestTable.exists())
             SchemaUtils.drop(TestTable)
@@ -49,7 +49,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
         }
 
         withDb { dbSetting ->
-            val tooOldMysql = dbSetting == TestDB.MYSQL && !db.isVersionCovers(BigDecimal("5.6"))
+            val tooOldMysql = dbSetting == TestDB.Jdbc.MYSQL && !db.isVersionCovers(BigDecimal("5.6"))
             if (!tooOldMysql) {
                 SchemaUtils.createMissingTablesAndColumns(TestTable)
                 assertTrue(TestTable.exists())
@@ -72,7 +72,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             val foo = varchar("foo", 50).nullable()
         }
 
-        withDb(excludeSettings = listOf(TestDB.SQLITE)) {
+        withDb(excludeSettings = listOf(TestDB.Jdbc.SQLITE)) {
             SchemaUtils.createMissingTablesAndColumns(t1)
             t1.insert { it[foo] = "ABC" }
             assertFailAndRollback("Can't insert to not-null column") {
@@ -122,7 +122,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
         val t = IntIdTable(tableName)
 
 
-        withDb(TestDB.H2) {
+        withDb(TestDB.Jdbc.H2) {
             SchemaUtils.createMissingTablesAndColumns(initialTable)
             assertEquals("ALTER TABLE ${tableName.inProperCase()} ADD ${"id".inProperCase()} ${t.id.columnType.sqlType()}", t.id.ddl.first())
             assertEquals("ALTER TABLE ${tableName.inProperCase()} ADD CONSTRAINT pk_$tableName PRIMARY KEY (${"id".inProperCase()})", t.id.ddl[1])
@@ -132,7 +132,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             SchemaUtils.drop(t)
         }
 
-        withDb(TestDB.SQLITE) {
+        withDb(TestDB.Jdbc.SQLITE) {
             try {
                 SchemaUtils.createMissingTablesAndColumns(t)
                 assertFalse(db.supportsAlterTableWithAddColumn)
@@ -143,7 +143,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             }
         }
 
-        withTables(excludeSettings = listOf(TestDB.H2, TestDB.H2_MYSQL, TestDB.SQLITE), tables = *arrayOf(initialTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.SQLITE, TestDB.Rdbc.H2), tables = arrayOf(initialTable)) {
             assertEquals("ALTER TABLE ${tableName.inProperCase()} ADD ${"id".inProperCase()} ${t.id.columnType.sqlType()} PRIMARY KEY", t.id.ddl)
             assertEquals(1, currentDialectTest.tableColumns(t)[t]!!.size)
             SchemaUtils.createMissingTablesAndColumns(t)
@@ -204,7 +204,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
 
 
     @Test fun createTableWithReservedIdentifierInColumnName() {
-        withDb(TestDB.MYSQL) {
+        withDb(TestDB.Jdbc.MYSQL) {
             addLogger(StdOutSqlLogger)
             SchemaUtils.createMissingTablesAndColumns(T1, T2)
             SchemaUtils.createMissingTablesAndColumns(T1, T2)

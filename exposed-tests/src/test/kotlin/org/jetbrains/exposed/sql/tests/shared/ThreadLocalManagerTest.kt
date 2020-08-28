@@ -4,6 +4,7 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.exceptions.ExposedSQLException
+import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
@@ -88,7 +89,7 @@ class ConnectionExceptions {
         }
     }
 
-    private class WrappingDataSource<T : Connection>(private val testDB: TestDB, private val connectionDecorator: (Connection) -> T) : DataSourceStub() {
+    private class WrappingDataSource<T : Connection>(private val testDB: TestDB.Jdbc, private val connectionDecorator: (Connection) -> T) : DataSourceStub() {
         val connections = mutableListOf<T>()
 
         override fun getConnection(): Connection {
@@ -112,9 +113,9 @@ class ConnectionExceptions {
         `_transaction repetition works even if rollback throws exception`(::ExceptionOnRollbackConnection)
     }
     private fun `_transaction repetition works even if rollback throws exception`(connectionDecorator: (Connection) -> ConnectionSpy){
-        Class.forName(TestDB.H2.driver).newInstance()
+        Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
-        val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.H2, connectionDecorator)
+        val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
         val db = Database.connect(datasource = wrappingDataSource)
         try {
             transaction(Connection.TRANSACTION_SERIALIZABLE, 5, db) {
@@ -145,9 +146,9 @@ class ConnectionExceptions {
         `_transaction repetition works when commit throws exception`(::ExceptionOnCommitConnection)
     }
     private fun `_transaction repetition works when commit throws exception`(connectionDecorator: (Connection) -> ConnectionSpy) {
-        Class.forName(TestDB.H2.driver).newInstance()
+        Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
-        val wrappingDataSource = WrappingDataSource(TestDB.H2, connectionDecorator)
+        val wrappingDataSource = WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
         val db = Database.connect(datasource = wrappingDataSource)
         try {
             transaction(Connection.TRANSACTION_SERIALIZABLE, 5, db) {
@@ -168,9 +169,9 @@ class ConnectionExceptions {
         `_transaction throws exception if all commits throws exception`(::ExceptionOnCommitConnection)
     }
     private fun `_transaction throws exception if all commits throws exception`(connectionDecorator: (Connection) -> ConnectionSpy){
-        Class.forName(TestDB.H2.driver).newInstance()
+        Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
-        val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.H2, connectionDecorator)
+        val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
         val db = Database.connect(datasource = wrappingDataSource)
         try {
             transaction(Connection.TRANSACTION_SERIALIZABLE, 5, db) {
@@ -232,17 +233,17 @@ class ConnectionExceptions {
 class ThreadLocalManagerTest : DatabaseTestsBase() {
     @Test
     fun testReconnection() {
-        if (TestDB.MYSQL !in TestDB.enabledInTests()) return
+        if (TestDB.Jdbc.MYSQL !in TestDB.enabledInTests()) return
 
         var secondThreadTm: TransactionManager? = null
-        val db1 = TestDB.MYSQL.connect()
+        val db1 = TestDB.Jdbc.MYSQL.connect()
         lateinit var db2: Database
 
         transaction {
             val firstThreadTm = db1.transactionManager
             SchemaUtils.create(DMLTestsData.Cities)
             thread {
-                db2 = TestDB.MYSQL.connect()
+                db2 = TestDB.Jdbc.MYSQL.connect()
                 transaction {
                     DMLTestsData.Cities.selectAll().toList()
                     secondThreadTm = db2.transactionManager
@@ -285,7 +286,8 @@ class RollbackTransactionTest : DatabaseTestsBase() {
 
     @Test
     fun testRollbackWithSavepoints() {
-        withTables(RollbackTable) {
+        val r2dc = TestDB.values() - TestDB.Rdbc.H2
+        withTables(r2dc, RollbackTable) {
             try {
                 db.useNestedTransactions = true
                 inTopLevelTransaction(db.transactionManager.defaultIsolationLevel, 1) {
@@ -314,7 +316,7 @@ class RollbackTransactionTest : DatabaseTestsBase() {
 class TransactionIsolationTest : DatabaseTestsBase() {
     @Test
     fun `test what transaction isolation was applied`() {
-        withDb {
+        withDb(TestDB.Rdbc.H2) {
             inTopLevelTransaction(Connection.TRANSACTION_SERIALIZABLE, 1) {
                 assertEquals(Connection.TRANSACTION_SERIALIZABLE, this.connection.transactionIsolation)
             }

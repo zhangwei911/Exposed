@@ -5,6 +5,7 @@ import org.jetbrains.exposed.sql.Index
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.vendors.ColumnMetadata
 import java.math.BigDecimal
+import java.sql.ResultSet
 
 abstract class ExposedDatabaseMetadata(val database: String) {
 

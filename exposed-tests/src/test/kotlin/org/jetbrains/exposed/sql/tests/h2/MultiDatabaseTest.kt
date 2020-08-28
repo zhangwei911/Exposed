@@ -2,6 +2,7 @@ package org.jetbrains.exposed.sql.tests.h2
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.assertEquals

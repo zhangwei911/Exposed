@@ -19,7 +19,7 @@ class ReplaceTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(username)
         }
         // Only MySQL supp
-        withTables(TestDB.values().toList() - listOf(TestDB.MYSQL, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG), NewAuth) {
+        withTables(TestDB.values().toList() - listOf(TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG), NewAuth) {
             NewAuth.replace {
                 it[username] = "username"
                 it[session] = "session".toByteArray()

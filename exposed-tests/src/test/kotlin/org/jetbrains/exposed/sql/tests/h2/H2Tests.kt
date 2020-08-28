@@ -11,7 +11,7 @@ class H2Tests : DatabaseTestsBase() {
 
     @Test
     fun insertInH2() {
-        withDb(listOf(TestDB.H2_MYSQL, TestDB.H2)) {
+        withDb(listOf(TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.H2)) {
 
             SchemaUtils.drop(Testing)
             SchemaUtils.create(Testing)
@@ -27,7 +27,7 @@ class H2Tests : DatabaseTestsBase() {
 
     @Test
     fun replaceAsInsertInH2() {
-        withDb(listOf(TestDB.H2_MYSQL, TestDB.H2)) {
+        withDb(listOf(TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.H2)) {
 
             SchemaUtils.drop(Testing)
             SchemaUtils.create(Testing)
@@ -43,7 +43,7 @@ class H2Tests : DatabaseTestsBase() {
 
     @Test
     fun replaceAsUpdateInH2() {
-        withDb(listOf(TestDB.H2_MYSQL, TestDB.H2)) {
+        withDb(listOf(TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.H2)) {
 
             SchemaUtils.drop(Testing)
             SchemaUtils.create(Testing)
@@ -63,7 +63,7 @@ class H2Tests : DatabaseTestsBase() {
 
     @Test
     fun emptyReplace() {
-        withDb(listOf(TestDB.H2_MYSQL, TestDB.H2)) {
+        withDb(listOf(TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.H2)) {
 
             SchemaUtils.drop(Testing)
             SchemaUtils.create(Testing)

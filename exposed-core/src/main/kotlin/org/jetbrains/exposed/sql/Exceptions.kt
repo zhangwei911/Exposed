@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.statements.StatementContext
 import org.jetbrains.exposed.sql.statements.expandArgs
 import org.jetbrains.exposed.sql.vendors.DatabaseDialect
 import java.sql.SQLException
+import kotlin.reflect.full.allSuperclasses
 
 class ExposedSQLException(cause: Throwable?, val contexts: List<StatementContext>, private val transaction: Transaction) : SQLException(cause) {
     fun causedByQueries() : List<String> = contexts.map {
@@ -48,3 +49,5 @@ class UnsupportedByDialectException(baseMessage: String, val dialect: DatabaseDi
 class DuplicateColumnException(columnName: String, tableName: String) : ExceptionInInitializerError("Duplicate column name \"$columnName\" in table \"$tableName\"")
 
 internal fun Transaction.throwUnsupportedException(message: String): Nothing = throw UnsupportedByDialectException(message, db.dialect)
+
+internal fun Throwable.isSQLException() = this is SQLException || (this is RuntimeException && this::class.allSuperclasses.any { it.simpleName == "R2dbcException" })

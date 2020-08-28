@@ -24,6 +24,7 @@ import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.junit.Test
+import java.time.LocalDateTime
 
 class JodaTimeDefaultsTest : JodaTimeBaseTest() {
     object TableWithDBDefault : IntIdTable() {
@@ -159,7 +160,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             else -> "NULL"
         }
 
-        withTables(listOf(TestDB.SQLITE), TestTable) {
+        withTables(listOf(TestDB.Jdbc.SQLITE), TestTable) {
             val dtType = currentDialectTest.dataTypeProvider.dateTimeType()
             val q = db.identifierManager.quoteString
             val baseExpression = "CREATE TABLE " + addIfNotExistsIfSupported() +
@@ -255,6 +256,55 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
     }
 
     @Test
+    fun testBetweenFunction() {
+        val foo = object : IntIdTable("foo") {
+            val dt = datetime("dateTime")
+        }
+
+        withTables(foo) {
+            val dt2020 = DateTime(2020, 1, 1, 1, 1)
+            foo.insert { it[dt] = DateTime(2019, 1, 1, 1, 1) }
+            foo.insert { it[dt] = dt2020 }
+            foo.insert { it[dt] = DateTime(2021, 1, 1, 1, 1) }
+            val count = foo.select { foo.dt.between(dt2020.minusWeeks(1), dt2020.plusWeeks(1)) }.count()
+            assertEquals(1, count)
+        }
+    }
+
+    @Test
+    fun testBetweenFunction2() {
+        val foo = object : IntIdTable("foo") {
+            val dt = datetime("dateTime").defaultExpression(CurrentDateTime())
+        }
+
+        withTables(foo) {
+            val dt2020 = DateTime.now()//DateTime(2020, 1, 1, 1, 1)
+            foo.insert {/* it[dt] = DateTime(2019, 1, 1, 1, 1)*/ }
+            foo.insert { /*it[dt] = dt2020*/ }
+            foo.insert { /*it[dt] = DateTime(2021, 1, 1, 1, 1) */ }
+            val count = foo.select { foo.dt.between(dt2020.minusWeeks(1), dt2020.plusWeeks(1)) }.count()
+            assertEquals(3, count)
+        }
+    }
+
+
+    @Test
+    fun testGreaterFunction() {
+        val foo = object : IntIdTable("foo") {
+            val dt = datetime("dateTime").defaultExpression(CurrentDateTime())
+        }
+
+        withTables(foo) {
+            val dt2020 = DateTime(2020, 1, 1, 1, 1)
+            foo.insert { it[dt] = DateTime(2019, 1, 1, 1, 1) }
+            foo.insert { it[dt] = dt2020 }
+            foo.insert { it[dt] = DateTime(2021, 1, 1, 1, 1) }
+            val count = foo.select { foo.dt.greaterEq(dt2020) }.count()
+            assertEquals(2, count)
+        }
+    }
+
+    @Test
     fun defaultCurrentDateTimeTest() {
         val TestDate = object : IntIdTable("TestDate") {
             val time = datetime("time").defaultExpression(CurrentDateTime())
@@ -291,7 +341,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val time = datetime("time").defaultExpression(CurrentDateTime())
         }
 
-        withDb(TestDB.SQLITE) {
+        withDb(TestDB.Jdbc.SQLITE) {
             try {
                 exec("CREATE TABLE IF NOT EXISTS TestDate (id INTEGER PRIMARY KEY AUTOINCREMENT, \"time\" NUMERIC DEFAULT (CURRENT_TIMESTAMP) NOT NULL);")
                 TestDate.insert { }

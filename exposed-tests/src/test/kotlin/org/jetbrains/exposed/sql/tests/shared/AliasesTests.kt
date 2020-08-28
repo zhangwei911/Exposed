@@ -5,6 +5,7 @@ import org.jetbrains.exposed.dao.flushCache
 import org.jetbrains.exposed.dao.id.UUIDTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
+import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.dml.withCitiesAndUsers
 import org.jetbrains.exposed.sql.tests.shared.entities.EntityTestsData
 import org.junit.Test
@@ -23,7 +24,8 @@ class AliasesTests : DatabaseTestsBase() {
             val name = varchar("name", 256)
         }
 
-        withTables(Facilities, Stables) {
+        val rdbc = TestDB.values() - TestDB.Rdbc.H2
+        withTables(rdbc, Facilities, Stables) {
             val stable1Id = Stables.insertAndGetId {
                 it[Stables.name] = "Stables1"
             }
@@ -51,7 +53,8 @@ class AliasesTests : DatabaseTestsBase() {
 
     @Test
     fun testJoinSubQuery01() {
-        withCitiesAndUsers { cities, users, userData ->
+        val h2 = TestDB.values() - TestDB.Rdbc.H2
+        withCitiesAndUsers(h2) { cities, users, userData ->
             val expAlias = users.name.max().alias("m")
             val usersAlias = users.slice(users.cityId, expAlias).selectAll().groupBy(users.cityId).alias("u2")
             val resultRows = Join(users).join(usersAlias, JoinType.INNER, usersAlias[expAlias], users.name).selectAll().toList()

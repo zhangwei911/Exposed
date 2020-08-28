@@ -1,13 +1,16 @@
 package org.jetbrains.exposed.sql.transactions
 
 import org.jetbrains.exposed.exceptions.ExposedSQLException
+import org.jetbrains.exposed.exceptions.isSQLException
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SqlLogger
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.exposedLogger
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedSavepoint
+import java.lang.RuntimeException
 import java.sql.SQLException
+import kotlin.reflect.full.allSuperclasses
 
 class ThreadLocalTransactionManager(private val db: Database,
                                     @Volatile override var defaultRepetitionAttempts: Int) : TransactionManager {
@@ -170,26 +173,28 @@ fun <T> inTopLevelTransaction(
                 val answer = transaction.statement()
                 transaction.commit()
                 return answer
-            } catch (e: SQLException) {
-                val exposedSQLException = e as? ExposedSQLException
-                val queriesToLog = exposedSQLException?.causedByQueries()?.joinToString(";\n")
-                    ?: "${transaction.currentStatement}"
-                val message = "Transaction attempt #$repetitions failed: ${e.message}. Statement(s): $queriesToLog"
-                exposedSQLException?.contexts?.forEach {
-                    transaction.interceptors.filterIsInstance<SqlLogger>().forEach { logger ->
-                        logger.log(it, transaction)
+            } catch (e: Throwable) {
+                if (e.isSQLException()) {
+                    val exposedSQLException = e as? ExposedSQLException
+                    val queriesToLog = exposedSQLException?.causedByQueries()?.joinToString(";\n")
+                        ?: "${transaction.currentStatement}"
+                    val message = "Transaction attempt #$repetitions failed: ${e.message}. Statement(s): $queriesToLog"
+                    exposedSQLException?.contexts?.forEach {
+                        transaction.interceptors.filterIsInstance<SqlLogger>().forEach { logger ->
+                            logger.log(it, transaction)
+                        }
                     }
-                }
-                exposedLogger.warn(message, e)
-                transaction.rollbackLoggingException { exposedLogger.warn("Transaction rollback failed: ${it.message}. See previous log line for statement", it) }
-                repetitions++
-                if (repetitions >= repetitionAttempts) {
+                    exposedLogger.warn(message, e)
+                    transaction.rollbackLoggingException { exposedLogger.warn("Transaction rollback failed: ${it.message}. See previous log line for statement", it) }
+                    repetitions++
+                    if (repetitions >= repetitionAttempts) {
+                        throw e
+                    }
+                } else {
+                    val currentStatement = transaction.currentStatement
+                    transaction.rollbackLoggingException { exposedLogger.warn("Transaction rollback failed: ${it.message}. Statement: $currentStatement", it) }
                     throw e
                 }
-            } catch (e: Throwable) {
-                val currentStatement = transaction.currentStatement
-                transaction.rollbackLoggingException { exposedLogger.warn("Transaction rollback failed: ${it.message}. Statement: $currentStatement", it) }
-                throw e
             } finally {
                 TransactionManager.resetCurrent(outerManager)
                 val currentStatement = transaction.currentStatement

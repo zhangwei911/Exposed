@@ -669,7 +669,7 @@ class BlobColumnType : ColumnType() {
         return if (currentDialect.dataTypeProvider.blobAsStream) {
             rs.getBytes(index)?.let(::ExposedBlob)
         } else {
-            rs.getBlob(index)?.binaryStream?.use { ExposedBlob(it.readBytes()) }
+            rs.getBinaryStream(index)?.use { ExposedBlob(it.readBytes()) }
         }
     }
 

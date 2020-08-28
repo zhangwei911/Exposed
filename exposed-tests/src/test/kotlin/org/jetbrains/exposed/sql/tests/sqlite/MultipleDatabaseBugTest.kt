@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql.tests.sqlite
 
+import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager

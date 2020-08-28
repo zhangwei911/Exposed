@@ -10,7 +10,7 @@ import java.math.BigDecimal
 class InsertSelectTests : DatabaseTestsBase() {
     @Test
     fun testInsertSelect01() {
-        withCitiesAndUsers(exclude = listOf(TestDB.ORACLE)) { cities, users, userData ->
+        withCitiesAndUsers(exclude = listOf(TestDB.Jdbc.ORACLE)) { cities, users, userData ->
             val substring = users.name.substring(1, 2)
             cities.insert(users.slice(substring).selectAll().orderBy(users.id).limit(2))
 

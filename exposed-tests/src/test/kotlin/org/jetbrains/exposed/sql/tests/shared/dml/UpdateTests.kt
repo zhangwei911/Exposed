@@ -11,9 +11,9 @@ import org.junit.Test
 
 class UpdateTests : DatabaseTestsBase() {
     private val notSupportLimit by lazy {
-        val exclude = arrayListOf(TestDB.POSTGRESQL, TestDB.POSTGRESQLNG)
+        val exclude = arrayListOf<TestDB>(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
         if (!SQLiteDialect.ENABLE_UPDATE_DELETE_LIMIT) {
-            exclude.add(TestDB.SQLITE)
+            exclude.add(TestDB.Jdbc.SQLITE)
         }
         exclude
     }
@@ -67,7 +67,7 @@ class UpdateTests : DatabaseTestsBase() {
     
     @Test
     fun testUpdateWithJoin() {
-        val dialects = listOf(TestDB.SQLITE)
+        val dialects = listOf(TestDB.Jdbc.SQLITE)
         withCitiesAndUsers(dialects) { cities, users, userData ->
             val join = users.innerJoin(userData)
             join.update {

@@ -2,7 +2,10 @@ package org.jetbrains.exposed.sql
 
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedDatabaseMetadata
-import org.jetbrains.exposed.sql.transactions.*
+import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
+import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
+import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 import java.sql.Connection
@@ -12,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.sql.ConnectionPoolDataSource
 import javax.sql.DataSource
 
-class Database private constructor(private val resolvedVendor: String? = null, val connector: () -> ExposedConnection<*>) {
+class Database(private val resolvedVendor: String? = null, val connector: () -> ExposedConnection<*>) {
 
     var useNestedTransactions: Boolean = false
 
@@ -58,9 +61,6 @@ class Database private constructor(private val resolvedVendor: String? = null, v
     companion object {
         private val dialects = ConcurrentHashMap<String, () -> DatabaseDialect>()
 
-        private val connectionInstanceImpl : DatabaseConnectionAutoRegistration =
-                ServiceLoader.load(DatabaseConnectionAutoRegistration::class.java, Database::class.java.classLoader).firstOrNull() ?: error("Can't load implementation for ${DatabaseConnectionAutoRegistration::class.simpleName}")
-
         private val driverMapping = mutableMapOf(
             "jdbc:h2" to "org.h2.Driver",
             "jdbc:postgresql" to "org.postgresql.Driver",
@@ -102,52 +102,6 @@ class Database private constructor(private val resolvedVendor: String? = null, v
             dialectMapping[prefix] = dialect
         }
 
-        private fun doConnect(
-            explicitVendor: String?,
-            getNewConnection: () -> Connection,
-            setupConnection: (Connection) -> Unit = {},
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
-        ): Database {
-            return Database(explicitVendor) {
-                connectionInstanceImpl(getNewConnection().apply { setupConnection(this) })
-            }.apply {
-                TransactionManager.registerManager(this, manager(this))
-            }
-        }
-
-        fun connect(datasource: DataSource, setupConnection: (Connection) -> Unit = {},
-                    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
-        ): Database {
-            return doConnect(explicitVendor = null, getNewConnection = { datasource.connection!! }, setupConnection = setupConnection, manager = manager)
-        }
-
-        @Deprecated(level = DeprecationLevel.ERROR, replaceWith = ReplaceWith("connectPool(datasource, setupConnection, manager)"), message = "Use connectPool instead")
-        fun connect(datasource: ConnectionPoolDataSource, setupConnection: (Connection) -> Unit = {},
-                    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
-        ): Database {
-            return doConnect(explicitVendor = null, getNewConnection = { datasource.pooledConnection.connection!! }, setupConnection = setupConnection, manager = manager)
-        }
-
-        fun connectPool(datasource: ConnectionPoolDataSource, setupConnection: (Connection) -> Unit = {},
-                    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
-        ): Database {
-            return doConnect(explicitVendor = null, getNewConnection = { datasource.pooledConnection.connection!! }, setupConnection = setupConnection, manager = manager)
-        }
-
-        fun connect(getNewConnection: () -> Connection,
-                    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
-        ): Database {
-            return doConnect(explicitVendor = null, getNewConnection = getNewConnection, manager = manager )
-        }
-
-        fun connect(url: String, driver: String=getDriver(url), user: String = "", password: String = "", setupConnection: (Connection) -> Unit = {},
-                    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
-        ): Database {
-            Class.forName(driver).newInstance()
-
-            return doConnect(getDialectName(url), { DriverManager.getConnection(url, user, password) }, setupConnection, manager )
-        }
-
         fun getDefaultIsolationLevel(db: Database) : Int =
             when(db.vendor) {
                 SQLiteDialect.dialectName -> Connection.TRANSACTION_SERIALIZABLE
@@ -166,7 +120,5 @@ class Database private constructor(private val resolvedVendor: String? = null, v
         }?.value ?: error("Can't resolve dialect for connection: $url")
     }
 }
-
-interface DatabaseConnectionAutoRegistration : (Connection) -> ExposedConnection<*>
 
 val Database.name : String get() = url.substringAfterLast('/').substringBefore('?')

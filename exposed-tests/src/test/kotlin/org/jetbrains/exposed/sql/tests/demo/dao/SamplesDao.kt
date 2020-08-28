@@ -3,6 +3,7 @@ package org.jetbrains.exposed.sql.tests.demo.dao
 import org.jetbrains.exposed.dao.id.*
 import org.jetbrains.exposed.dao.*
 import org.jetbrains.exposed.dao.id.EntityID
+import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transaction
 import kotlin.test.Test

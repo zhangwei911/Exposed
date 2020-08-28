@@ -1,6 +1,7 @@
 package org.jetbrains.exposed.sql.statements
 
 import org.jetbrains.exposed.exceptions.ExposedSQLException
+import org.jetbrains.exposed.exceptions.isSQLException
 import org.jetbrains.exposed.sql.IColumnType
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.Transaction
@@ -46,8 +47,11 @@ abstract class Statement<out T>(val type: StatementType, val targets: List<Table
 
         val statement = try {
             prepared(transaction, prepareSQL(transaction))
-        } catch (e: SQLException) {
-            throw ExposedSQLException(e, contexts, transaction)
+        } catch (e: Exception) {
+            if (e.isSQLException()) {
+                throw ExposedSQLException(e, contexts, transaction)
+            } else
+                throw e
         }
         contexts.forEachIndexed { i, context ->
             statement.fillParameters(context.args)
@@ -59,8 +63,11 @@ abstract class Statement<out T>(val type: StatementType, val targets: List<Table
         transaction.currentStatement = statement
         val result = try {
             statement.executeInternal(transaction)
-        } catch (e: SQLException) {
-            throw ExposedSQLException(e, contexts, transaction)
+        } catch (e: Exception) {
+            if (e.isSQLException()) {
+                throw ExposedSQLException(e, contexts, transaction)
+            } else
+                throw e
         }
         transaction.currentStatement = null
         transaction.executedStatements.add(statement)

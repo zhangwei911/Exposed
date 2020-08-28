@@ -133,7 +133,7 @@ class FunctionsTests : DatabaseTestsBase() {
     }
 
     @Test fun testRegexp01() {
-        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER)) { _, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.SQLSERVER)) { _, users, _ ->
             assertEquals(2L, users.select { users.id regexp "a.+" }.count())
             assertEquals(1L, users.select { users.id regexp "an.+" }.count())
             assertEquals(users.selectAll().count(), users.select { users.id regexp ".*" }.count())
@@ -142,7 +142,7 @@ class FunctionsTests : DatabaseTestsBase() {
     }
 
     @Test fun testRegexp02() {
-        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER)) { _, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.SQLSERVER)) { _, users, _ ->
             assertEquals(2L, users.select { users.id.regexp(stringLiteral("a.+")) }.count())
             assertEquals(1L, users.select { users.id.regexp(stringLiteral("an.+")) }.count())
             assertEquals(users.selectAll().count(), users.select { users.id.regexp(stringLiteral(".*")) }.count())

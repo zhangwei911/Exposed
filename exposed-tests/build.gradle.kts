@@ -18,6 +18,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", Versions.kotlinCoroutines)
     implementation(project(":exposed-core"))
     implementation(project(":exposed-jdbc"))
+    implementation(project(":exposed-rdbc"))
     implementation(project(":exposed-dao"))
     implementation(kotlin("test-junit"))
     implementation("org.slf4j", "slf4j-log4j12", "1.7.26")
