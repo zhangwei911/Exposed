@@ -1,7 +1,10 @@
 package org.jetbrains.exposed.sql.tests
 
 import com.opentable.db.postgres.embedded.EmbeddedPostgres
+import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
+import io.r2dbc.h2.H2ConnectionOption
+import io.r2dbc.spi.ConnectionFactory
 import org.h2.engine.Mode
 import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.rdbc.connect
@@ -140,7 +143,7 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
     }
 
     sealed class Rdbc(
-        val connection: () -> Publisher<out io.r2dbc.spi.Connection>,
+        val connectionFactory: ConnectionFactory,
         val jdbc: Jdbc
     ) : TestDB({}, {}) {
 
@@ -148,9 +151,8 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
 
         override fun initDatabase(): Database {
             val jdbcDb = jdbc.connect()
-            val rdbcConnection = connection()
             return Database.connect(
-                connection = rdbcConnection,
+                connection = connectionFactory.create(),
                 jdbcConnection = {
                     (jdbcDb.connector() as JdbcConnectionImpl).connection
                 }
@@ -158,9 +160,13 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         }
 
         object H2 : Rdbc(
-            connection = {
-                H2ConnectionFactory.inMemory("rdbc", Jdbc.H2_RDBC.user, Jdbc.H2_RDBC.pass).create()
-            },
+            connectionFactory = H2ConnectionFactory(
+                H2ConnectionConfiguration.builder().inMemory("rdbc")
+                    .username(Jdbc.H2_RDBC.user)
+                    .password(Jdbc.H2_RDBC.pass)
+                    .property(H2ConnectionOption.DB_CLOSE_DELAY, "-1")
+                    .build()
+            ),
             jdbc = Jdbc.H2_RDBC
         )
     }
