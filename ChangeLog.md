@@ -1,3 +1,8 @@
+# 0.17.8
+Bug fixes:
+* Remove table referrers from junction tables on referrers cache invalidation
+* Support for MySQL ConnectorJ 8.0.23
+
 # 0.17.7
 Deprecations:
 * Remove deprecated Expression.toSQL 
