@@ -3,6 +3,7 @@ package org.jetbrains.exposed.sql
 import org.jetbrains.exposed.dao.EntityID
 import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.statements.DefaultValueMarker
+import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTime
@@ -261,10 +262,22 @@ class DateColumnType(val time: Boolean): ColumnType() {
         is String -> when {
             currentDialect is SQLiteDialect && time -> SQLITE_DATE_TIME_STRING_FORMATTER.parseDateTime(value)
             currentDialect is SQLiteDialect -> SQLITE_DATE_STRING_FORMATTER.parseDateTime(value)
-            else -> value
+            !time -> DEFAULT_DATE_STRING_FORMATTER.parseDateTime(value)
+            value.contains('.') -> DEFAULT_DATE_TIME_STRING_FORMATTER.parseDateTime(value)
+            else -> SQLITE_DATE_TIME_STRING_FORMATTER.parseDateTime(value)
         }
-        // REVIEW
-        else -> DEFAULT_DATE_TIME_STRING_FORMATTER.parseDateTime(value.toString())
+        else -> valueFromDB(value.toString())
+    }
+
+    override fun readObject(rs: ResultSet, index: Int): Any? {
+        /*
+         Since MySQL ConnectorJ 8.0.23 driver returns LocalDateTime instead of String for DateTime columns.
+         As exposed-jodatime module should work with Java 1.7 it's necessary to fetch it as String as it was before.
+         */
+        if (time && currentDialect is MysqlDialect) {
+            return rs.getObject(index, String::class.java)
+        }
+        return super.readObject(rs, index)
     }
 
     override fun notNullValueToDB(value: Any): Any {
