@@ -1163,4 +1163,35 @@ class EntityTests: DatabaseTestsBase() {
             }
         }
     }
+
+    @Test fun `test reference cache doesn't fully invalidated on set entty reference`() {
+        withTables(Regions, Schools, Students, StudentBios) {
+            val region1 = Region.new {
+                name = "United States"
+            }
+
+            val school1 = School.new {
+                name = "Eton"
+                region = region1
+            }
+
+            val student1 = Student.new {
+                name = "James Smith"
+                school = school1
+            }
+
+            val student2 = Student.new {
+                name = "John Smith"
+                school = school1
+            }
+
+            val bio1 = StudentBio.new {
+                student = student1
+                dateOfBirth = "01/01/2000"
+            }
+
+            assertEquals(bio1, student1.bio)
+            assertEquals(bio1.student, student1)
+        }
+    }
 }

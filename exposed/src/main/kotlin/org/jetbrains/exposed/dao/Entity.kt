@@ -181,7 +181,7 @@ class InnerTableLink<SID:Comparable<SID>, Source: Entity<SID>, ID:Comparable<ID>
         entityCache.flush()
         val oldValue = getValue(o, unused)
         val existingIds = oldValue.map { it.id }.toSet()
-        entityCache.clearReferrersCache()
+        entityCache.referrers[o.id]?.remove(sourceRefColumn)
 
         val targetIds = value.map { it.id }
         table.deleteWhere { (sourceRefColumn eq o.id) and (targetColumn notInList targetIds) }
@@ -293,7 +293,6 @@ open class Entity<ID:Comparable<ID>>(val id: EntityID<ID>) {
                 listOfNotNull<Any>(value, currentValue).forEach {
                     entityCache.referrers[it]?.remove(this)
                 }
-                entityCache.removeTablesReferrers(listOf(referee!!.table))
             }
             writeValues[this as Column<Any?>] = value
         }
@@ -318,9 +317,9 @@ open class Entity<ID:Comparable<ID>>(val id: EntityID<ID>) {
      * This will remove the entity from the database as well as the cache.
      */
     open fun delete(){
-        klass.removeFromCache(this)
         val table = klass.table
-        table.deleteWhere {table.id eq id}
+        table.deleteWhere { table.id eq id }
+        klass.removeFromCache(this)
         EntityHook.registerChange(TransactionManager.current(), EntityChange(klass, id, EntityChangeType.Removed))
     }
 
@@ -368,29 +367,30 @@ class EntityCache(private val transaction: Transaction) {
     val inserts = LinkedHashMap<IdTable<*>, MutableList<Entity<*>>>()
     val referrers = HashMap<EntityID<*>, MutableMap<Column<*>, SizedIterable<*>>>()
 
-    private fun getMap(f: EntityClass<*, *>) : MutableMap<Any,  Entity<*>> = getMap(f.table)
+    private fun getEntityMap(f: EntityClass<*, *>) : MutableMap<Any, Entity<*>>? = data[f.table]
+    private fun getOrCreateEntityMap(f: EntityClass<*, *>) : MutableMap<Any,  Entity<*>> = getMap(f.table)
 
     private fun getMap(table: IdTable<*>) : MutableMap<Any, Entity<*>> = data.getOrPut(table) {
         LinkedHashMap()
     }
 
     fun <ID: Any, R: Entity<ID>> getOrPutReferrers(sourceId: EntityID<*>, key: Column<*>, refs: ()-> SizedIterable<R>): SizedIterable<R> =
-            referrers.getOrPut(sourceId){HashMap()}.getOrPut(key) {LazySizedCollection(refs())} as SizedIterable<R>
+            referrers.getOrPut(sourceId){HashMap()}.getOrPut(key) { LazySizedCollection(refs()) } as SizedIterable<R>
 
-    fun <ID:Comparable<ID>, T: Entity<ID>> find(f: EntityClass<ID, T>, id: EntityID<ID>): T? = getMap(f)[id.value] as T? ?: inserts[f.table]?.firstOrNull { it.id == id } as? T
+    fun <ID:Comparable<ID>, T: Entity<ID>> find(f: EntityClass<ID, T>, id: EntityID<ID>): T? = getEntityMap(f)?.get(id.value) as T? ?: inserts[f.table]?.firstOrNull { it.id == id } as? T
 
-    fun <ID:Comparable<ID>, T: Entity<ID>> findAll(f: EntityClass<ID, T>): Collection<T> = getMap(f).values as Collection<T>
+    fun <ID:Comparable<ID>, T: Entity<ID>> findAll(f: EntityClass<ID, T>): Collection<T> = getOrCreateEntityMap(f).values as Collection<T>
 
     fun <ID:Comparable<ID>, T: Entity<ID>> store(f: EntityClass<ID, T>, o: T) {
-        getMap(f)[o.id.value] = o
+        getOrCreateEntityMap(f)[o.id.value] = o
     }
 
     fun store(o: Entity<*>) {
-        getMap(o.klass.table)[o.id.value] = o
+        getOrCreateEntityMap(o.klass)[o.id.value] = o
     }
 
     fun <ID:Comparable<ID>, T: Entity<ID>> remove(table: IdTable<ID>, o: T) {
-        getMap(table).remove(o.id.value)
+        data[table]?.remove(o.id.value)
     }
 
     fun <ID:Comparable<ID>, T: Entity<ID>> scheduleInsert(f: EntityClass<ID, T>, o: T) {
