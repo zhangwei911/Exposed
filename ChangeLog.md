@@ -1,3 +1,8 @@
+# 0.17.9
+Bug fixes:
+* Don't invalidate the whole referrers cache when update a single reference on Entity
+*  Use `columnType` when read data from database, not only for Columns
+
 # 0.17.8
 Bug fixes:
 * Remove table referrers from junction tables on referrers cache invalidation
