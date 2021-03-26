@@ -15,7 +15,6 @@ _publishing {
         create<MavenPublication>("ExposedJars") {
             artifactId = project.name
             from(project.components["java"])
-            artifact(sourcesJar.get())
             pom {
                 configureMavenCentralMetadata(project)
             }
