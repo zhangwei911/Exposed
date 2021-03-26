@@ -5,9 +5,9 @@ apply(plugin = "maven")
 apply(plugin = "maven-publish")
 apply(plugin = "signing")
 
-val sourcesJar by tasks.registering(Jar::class) {
-    archiveClassifier by "sources"
-    from(project.file("src/main/kotlin"))
+_java {
+    withJavadocJar()
+    withSourcesJar()
 }
 
 _publishing {

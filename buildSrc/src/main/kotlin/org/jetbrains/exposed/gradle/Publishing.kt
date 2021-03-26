@@ -9,6 +9,7 @@ import org.gradle.api.publish.maven.MavenPom
 import org.gradle.api.publish.maven.MavenPublication
 import org.gradle.plugins.signing.SigningExtension
 import io.github.gradlenexus.publishplugin.*
+import org.gradle.api.plugins.JavaPluginExtension
 
 infix fun <T> Property<T>.by(value: T) {
     set(value)
@@ -60,6 +61,6 @@ fun Project._publishing(configure: PublishingExtension.() -> Unit) {
     extensions.configure("publishing", configure)
 }
 
-fun Project._nexusPublishing(configure: NexusPublishExtension.() -> Unit) {
-    extensions.configure("nexusPublishing", configure)
+fun Project._java(configure: JavaPluginExtension.() -> Unit) {
+    extensions.configure("java", configure)
 }
