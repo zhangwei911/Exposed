@@ -226,6 +226,9 @@ interface DatabaseDialect {
 
     val supportsOnlyIdentifiersInGeneratedKeys get() = false
 
+    /** Returns `true` if the dialect supports subqueries within a UNION/EXCEPT/INTERSECT statement */
+    val supportsSubqueryUnions: Boolean get() = false
+
     // Specific SQL statements
 
     fun createIndex(index: Index): String

@@ -15,6 +15,8 @@ import org.joda.time.DateTimeZone
 import java.sql.Connection
 import java.util.*
 import kotlin.concurrent.thread
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 enum class TestDB(val connection: () -> String, val driver: String, val user: String = "root", val pass: String = "",
                   val beforeConnection: () -> Unit = {}, val afterTestFinished: () -> Unit = {}, var db: Database? = null) {
@@ -156,6 +158,6 @@ abstract class DatabaseTestsBase {
         ""
     }
 
-    fun <T>Transaction.assertEquals(exp: T, act: T) = kotlin.test.assertEquals(exp, act, "Failed on ${currentDialect.name}")
-    fun <T>Transaction.assertEquals(exp: T, act: List<T>) = kotlin.test.assertEquals(exp, act.single(), "Failed on ${currentDialect.name}")
+    fun <T> Transaction.assertEquals(exp: T, act: T) = kotlin.test.assertEquals(exp, act, "Failed on ${currentDialect.name}")
+    fun <T> Transaction.assertEquals(exp: T, act: List<T>) = kotlin.test.assertEquals(exp, act.single(), "Failed on ${currentDialect.name}")
 }
