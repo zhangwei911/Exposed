@@ -248,12 +248,6 @@ open class Query(override var set: FieldSet, where: Op<Boolean>?) : AbstractQuer
         return this
     }
 
-    private fun flushEntities() {
-        // Flush data before executing query or results may be unpredictable
-        val tables = set.source.columns.map { it.table }.filterIsInstance(IdTable::class.java).toSet()
-        transaction.entityCache.flush(tables)
-    }
-
     override fun count(): Int {
         flushEntities()
 

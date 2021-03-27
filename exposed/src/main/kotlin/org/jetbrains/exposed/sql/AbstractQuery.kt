@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql
 
+import org.jetbrains.exposed.dao.IdTable
 import org.jetbrains.exposed.sql.statements.Statement
 import org.jetbrains.exposed.sql.statements.StatementType
 import org.jetbrains.exposed.sql.transactions.TransactionManager
@@ -62,11 +63,18 @@ abstract class AbstractQuery<T : AbstractQuery<T>>(targets: List<Table>) : Sized
     protected abstract val queryToExecute: Statement<ResultSet>
 
     override fun iterator(): Iterator<ResultRow> {
+        flushEntities()
         val resultIterator = ResultIterator(transaction.exec(queryToExecute)!!)
         return if (transaction.db.supportsMultipleResultSets) resultIterator
         else {
             Iterable { resultIterator }.toList().iterator()
         }
+    }
+
+    protected fun flushEntities() {
+        // Flush data before executing query or results may be unpredictable
+        val tables = set.source.columns.map { it.table }.filterIsInstance(IdTable::class.java).toSet()
+        transaction.entityCache.flush(tables)
     }
 
     protected inner class ResultIterator(val rs: ResultSet) : Iterator<ResultRow> {

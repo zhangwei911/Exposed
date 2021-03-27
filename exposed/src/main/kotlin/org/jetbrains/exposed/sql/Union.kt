@@ -37,6 +37,7 @@ class Union(
     }
 
     override fun count(): Int {
+        flushEntities()
         try {
             count = true
             return transaction.exec(this) { rs ->
@@ -49,6 +50,7 @@ class Union(
     }
 
     override fun empty(): Boolean {
+        flushEntities()
         val oldLimit = limit
         try {
             limit = 1
