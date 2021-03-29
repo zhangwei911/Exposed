@@ -168,4 +168,17 @@ class UnionTests : DatabaseTestsBase() {
             }
         }
     }
+
+    @Test
+    fun `test union alias`() {
+        withCitiesAndUsers { _, users, _ ->
+            val andreyQuery = users.select { users.id eq "andrey" }
+            val sergeyQuery = users.select { users.id eq "sergey" }
+            val unionAlias = andreyQuery.union(sergeyQuery).alias("u")
+            users.join(unionAlias, JoinType.INNER, users.id, unionAlias[users.id]).selectAll().map { it[users.id] }.apply {
+                assertEquals(2, size)
+                assertTrue(containsAll(listOf("andrey", "sergey")))
+            }
+        }
+    }
 }

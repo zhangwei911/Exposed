@@ -56,7 +56,7 @@ class ExpressionAlias<T>(val delegate: Expression<T>, val alias: String) : Expre
     }
 }
 
-class QueryAlias(val query: Query, val alias: String): ColumnSet() {
+class QueryAlias(val query: AbstractQuery<*>, val alias: String): ColumnSet() {
 
     override fun describe(s: Transaction, queryBuilder: QueryBuilder) = queryBuilder{
         append("(")
@@ -92,7 +92,7 @@ class QueryAlias(val query: Query, val alias: String): ColumnSet() {
 }
 
 fun <T:Table> T.alias(alias: String) = Alias(this, alias)
-fun <T:Query> T.alias(alias: String) = QueryAlias(this, alias)
+fun <T : AbstractQuery<*>> T.alias(alias: String) = QueryAlias(this, alias)
 fun <T> Expression<T>.alias(alias: String) = ExpressionAlias(this, alias)
 
 fun Join.joinQuery(on: (SqlExpressionBuilder.(QueryAlias)->Op<Boolean>), joinType: JoinType = JoinType.INNER, joinPart: () -> Query): Join {
