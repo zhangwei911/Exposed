@@ -189,7 +189,7 @@ object SqlExpressionBuilder {
         return notInList(list.map { EntityID(it, idTable) })
     }
 
-    infix fun<T> ExpressionWithColumnType<T>.inSubQuery(query: Query): Op<Boolean> = InSubQueryOp(this, query)
+    infix fun<T> ExpressionWithColumnType<T>.inSubQuery(query: AbstractQuery<*>): Op<Boolean> = InSubQueryOp(this, query)
 
     @Suppress("UNCHECKED_CAST")
     fun<T, S: T?> ExpressionWithColumnType<S>.asLiteral(value: T) = when (value) {

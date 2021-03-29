@@ -115,7 +115,7 @@ class InListOrNotInListOp<T>(val expr: ExpressionWithColumnType<T>, val list: It
     }
 }
 
-class InSubQueryOp<T>(val expr: Expression<T>, val query: Query): Op<Boolean>() {
+class InSubQueryOp<T>(val expr: Expression<T>, val query: AbstractQuery<*>): Op<Boolean>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder {
         append(expr, " IN (")
         query.prepareSQL(this)
@@ -199,7 +199,7 @@ class NotOp<T>(val expr: Expression<T>) : Op<Boolean>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder { append("NOT (", expr, ")") }
 }
 
-class exists(val query: Query) : Op<Boolean>() {
+class exists(val query: AbstractQuery<*>) : Op<Boolean>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder {
         append("EXISTS (")
         query.prepareSQL(queryBuilder)
@@ -207,7 +207,7 @@ class exists(val query: Query) : Op<Boolean>() {
     }
 }
 
-class notExists(val query: Query) : Op<Boolean>() {
+class notExists(val query: AbstractQuery<*>) : Op<Boolean>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder {
         append("NOT EXISTS (")
         query.prepareSQL(queryBuilder)

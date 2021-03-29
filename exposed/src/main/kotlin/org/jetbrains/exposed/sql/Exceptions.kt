@@ -3,6 +3,7 @@ package org.jetbrains.exposed.exceptions
 
 import org.jetbrains.exposed.dao.EntityClass
 import org.jetbrains.exposed.dao.EntityID
+import org.jetbrains.exposed.sql.AbstractQuery
 import org.jetbrains.exposed.sql.Query
 import org.jetbrains.exposed.sql.QueryBuilder
 import org.jetbrains.exposed.sql.Transaction
@@ -23,7 +24,7 @@ class ExposedSQLException(cause: Throwable?, val contexts: List<StatementContext
             }
         } catch (e: Throwable) {
             try {
-                (it.statement as? Query)?.prepareSQL(QueryBuilder(!transaction.debug))
+                (it.statement as? AbstractQuery<*>)?.prepareSQL(QueryBuilder(!transaction.debug))
             } catch (e: Throwable) {
                 null
             } ?: "Failed on expanding args for ${it.statement.type}: ${it.statement}"
