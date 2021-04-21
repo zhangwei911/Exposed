@@ -2,7 +2,6 @@ package org.jetbrains.exposed.jdbc
 
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
-import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
 import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
 import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
 import org.jetbrains.exposed.sql.transactions.TransactionManager
@@ -25,37 +24,49 @@ private fun doConnect(
     }
 }
 
-fun Database.Companion.connect(datasource: DataSource, setupConnection: (Connection) -> Unit = {},
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
+fun Database.Companion.connect(
+    datasource: DataSource,
+    setupConnection: (Connection) -> Unit = {},
+    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
 ): Database {
     return doConnect(explicitVendor = null, getNewConnection = { datasource.connection!! }, setupConnection = setupConnection, manager = manager)
 }
 
 @Deprecated(level = DeprecationLevel.ERROR, replaceWith = ReplaceWith("connectPool(datasource, setupConnection, manager)"), message = "Use connectPool instead")
-fun Database.Companion.connect(datasource: ConnectionPoolDataSource, setupConnection: (Connection) -> Unit = {},
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
+fun Database.Companion.connect(
+    datasource: ConnectionPoolDataSource,
+    setupConnection: (Connection) -> Unit = {},
+    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
 ): Database {
     return doConnect(explicitVendor = null, getNewConnection = { datasource.pooledConnection.connection!! }, setupConnection = setupConnection, manager = manager)
 }
 
-fun Database.Companion.connectPool(datasource: ConnectionPoolDataSource, setupConnection: (Connection) -> Unit = {},
-                manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
+fun Database.Companion.connectPool(
+    datasource: ConnectionPoolDataSource,
+    setupConnection: (Connection) -> Unit = {},
+    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
 ): Database {
     return doConnect(explicitVendor = null, getNewConnection = { datasource.pooledConnection.connection!! }, setupConnection = setupConnection, manager = manager)
 }
 
-fun Database.Companion.connect(getNewConnection: () -> Connection,
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
+fun Database.Companion.connect(
+    getNewConnection: () -> Connection,
+    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
 ): Database {
-    return doConnect(explicitVendor = null, getNewConnection = getNewConnection, manager = manager )
+    return doConnect(explicitVendor = null, getNewConnection = getNewConnection, manager = manager)
 }
 
-fun Database.Companion.connect(url: String, driver: String=getDriver(url), user: String = "", password: String = "", setupConnection: (Connection) -> Unit = {},
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
+fun Database.Companion.connect(
+    url: String,
+    driver: String = getDriver(url),
+    user: String = "",
+    password: String = "",
+    setupConnection: (Connection) -> Unit = {},
+    manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it, DEFAULT_REPETITION_ATTEMPTS) }
 ): Database {
     Class.forName(driver).newInstance()
 
-    return doConnect(getDialectName(url), { DriverManager.getConnection(url, user, password) }, setupConnection, manager )
+    return doConnect(getDialectName(url), { DriverManager.getConnection(url, user, password) }, setupConnection, manager)
 }
 
 private fun getDriver(url: String) = when {

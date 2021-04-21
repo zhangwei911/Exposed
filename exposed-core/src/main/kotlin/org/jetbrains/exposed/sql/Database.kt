@@ -3,17 +3,12 @@ package org.jetbrains.exposed.sql
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedDatabaseMetadata
 import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
-import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
-import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 import java.sql.Connection
-import java.sql.DriverManager
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import javax.sql.ConnectionPoolDataSource
-import javax.sql.DataSource
 
 class Database(private val resolvedVendor: String? = null, val connector: () -> ExposedConnection<*>) {
 
@@ -102,8 +97,8 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
             dialectMapping[prefix] = dialect
         }
 
-        fun getDefaultIsolationLevel(db: Database) : Int =
-            when(db.vendor) {
+        fun getDefaultIsolationLevel(db: Database): Int =
+            when (db.vendor) {
                 SQLiteDialect.dialectName -> Connection.TRANSACTION_SERIALIZABLE
                 OracleDialect.dialectName -> Connection.TRANSACTION_READ_COMMITTED
                 PostgreSQLDialect.dialectName -> Connection.TRANSACTION_READ_COMMITTED
@@ -121,4 +116,4 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
     }
 }
 
-val Database.name : String get() = url.substringAfterLast('/').substringBefore('?')
+val Database.name: String get() = url.substringAfterLast('/').substringBefore('?')

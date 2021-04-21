@@ -45,7 +45,7 @@ class InsertTests : DatabaseTestsBase() {
     }
 
     private val insertIgnoreSupportedDB = TestDB.values().toList() -
-            listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
+        listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
 
     @Test
     fun testInsertIgnoreAndGetId01() {
@@ -122,7 +122,7 @@ class InsertTests : DatabaseTestsBase() {
         }
 
         val insertIgnoreSupportedDB = TestDB.values().toList() -
-                listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
+            listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
         withTables(insertIgnoreSupportedDB, idTable) {
             val id = idTable.insertIgnore {
                 it[idTable.id] = EntityID(1, idTable)

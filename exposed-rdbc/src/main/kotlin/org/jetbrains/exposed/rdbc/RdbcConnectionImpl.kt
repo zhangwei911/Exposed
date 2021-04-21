@@ -4,9 +4,6 @@ import io.r2dbc.spi.Connection
 import io.r2dbc.spi.IsolationLevel
 import io.r2dbc.spi.ValidationDepth
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.reactive.*
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedDatabaseMetadata
@@ -21,8 +18,7 @@ internal typealias JdbcConnection = java.sql.Connection
 fun unsupportedByRdbcDriver(): Nothing = throw UnsupportedOperationException("Unsupported by RDBC driver")
 
 class RdbcScope(dispatcher: CoroutineDispatcher?) : CoroutineScope {
-    override val coroutineContext: CoroutineContext
-            = dispatcher?.let { EmptyCoroutineContext + dispatcher } ?: EmptyCoroutineContext
+    override val coroutineContext: CoroutineContext = dispatcher?.let { EmptyCoroutineContext + dispatcher } ?: EmptyCoroutineContext
 }
 
 @ExperimentalCoroutinesApi
@@ -30,9 +26,8 @@ class RdbcConnectionImpl(
     override val connection: Publisher<out Connection>,
     private val scope: RdbcScope,
     val jdbcConnection: (() -> JdbcConnection)?
-)
-    : ExposedConnection<Publisher<out Connection>>
-{
+) :
+    ExposedConnection<Publisher<out Connection>> {
     private var localConnection: Connection? = null
 
     internal fun <T> withConnection(body: suspend (Connection) -> T): T = runBlocking {
@@ -47,18 +42,18 @@ class RdbcConnectionImpl(
     }
 
     override val isClosed: Boolean get() = withConnection {
-        it.validate(ValidationDepth.LOCAL).awaitSingle() || it.validate(ValidationDepth.REMOTE).awaitSingle()
+        !it.validate(ValidationDepth.LOCAL).awaitSingle() || !it.validate(ValidationDepth.REMOTE).awaitSingle()
     }
 
     override fun commit() {
         withConnection {
-            it.commitTransaction()
+            it.commitTransaction().awaitFirstOrNull()
         }
     }
 
     override fun rollback() {
         withConnection {
-            it.rollbackTransaction()
+            it.rollbackTransaction().awaitFirstOrNull()
         }
     }
 
@@ -74,7 +69,7 @@ class RdbcConnectionImpl(
             withConnection { it.setAutoCommit(value).awaitFirstOrNull() }
         }
 
-    private fun IsolationLevel.asInt() = when(this) {
+    private fun IsolationLevel.asInt() = when (this) {
         IsolationLevel.READ_UNCOMMITTED -> 1
         IsolationLevel.READ_COMMITTED -> 2
         IsolationLevel.REPEATABLE_READ -> 4
@@ -82,7 +77,7 @@ class RdbcConnectionImpl(
         else -> error("Unsupported isolation level $this")
     }
 
-    private fun Int.asIsolationLevel() = when(this) {
+    private fun Int.asIsolationLevel() = when (this) {
         1 -> IsolationLevel.READ_UNCOMMITTED
         2 -> IsolationLevel.READ_COMMITTED
         4 -> IsolationLevel.REPEATABLE_READ

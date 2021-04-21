@@ -8,9 +8,6 @@ import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.exposedLogger
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedSavepoint
-import java.lang.RuntimeException
-import java.sql.SQLException
-import kotlin.reflect.full.allSuperclasses
 
 class ThreadLocalTransactionManager(
     private val db: Database,
@@ -178,7 +175,7 @@ fun <T> inTopLevelTransaction(
                 return answer
             } catch (e: Throwable) {
                 if (e.isSQLException()) {
-                    handleSQLException(e, transaction, repetitions)
+                    handleSQLException(e as Exception, transaction, repetitions)
                     repetitions++
                     if (repetitions >= repetitionAttempts) {
                         throw e
@@ -210,7 +207,7 @@ private fun <T> keepAndRestoreTransactionRefAfterRun(db: Database? = null, block
     }
 }
 
-internal fun handleSQLException(e: SQLException, transaction: Transaction, repetitions: Int) {
+internal fun handleSQLException(e: Exception, transaction: Transaction, repetitions: Int) {
     val exposedSQLException = e as? ExposedSQLException
     val queriesToLog = exposedSQLException?.causedByQueries()?.joinToString(";\n") ?: "${transaction.currentStatement}"
     val message = "Transaction attempt #$repetitions failed: ${e.message}. Statement(s): $queriesToLog"

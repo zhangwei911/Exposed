@@ -6,7 +6,6 @@ import org.jetbrains.exposed.sql.IColumnType
 import org.jetbrains.exposed.sql.Table
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
-import java.sql.SQLException
 import java.util.*
 
 internal object DefaultValueMarker {

@@ -112,7 +112,7 @@ class ConnectionExceptions {
     fun `transaction repetition works even if rollback throws exception`() {
         `_transaction repetition works even if rollback throws exception`(::ExceptionOnRollbackConnection)
     }
-    private fun `_transaction repetition works even if rollback throws exception`(connectionDecorator: (Connection) -> ConnectionSpy){
+    private fun `_transaction repetition works even if rollback throws exception`(connectionDecorator: (Connection) -> ConnectionSpy) {
         Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
         val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
@@ -168,7 +168,7 @@ class ConnectionExceptions {
     fun `transaction throws exception if all commits throws exception`() {
         `_transaction throws exception if all commits throws exception`(::ExceptionOnCommitConnection)
     }
-    private fun `_transaction throws exception if all commits throws exception`(connectionDecorator: (Connection) -> ConnectionSpy){
+    private fun `_transaction throws exception if all commits throws exception`(connectionDecorator: (Connection) -> ConnectionSpy) {
         Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
         val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
@@ -327,7 +327,7 @@ class TransactionManagerResetTest {
     @Test
     fun `test closeAndUnregister with next Database-connect works fine`() {
         val initialManager = TransactionManager.manager
-        val db1 = TestDB.H2.connect()
+        val db1 = TestDB.Jdbc.H2.connect()
         val db1TransactionManager = TransactionManager.managerFor(db1)
         assertEquals(initialManager, TransactionManager.manager)
         transaction(db1) {
@@ -336,7 +336,7 @@ class TransactionManagerResetTest {
         }
         TransactionManager.closeAndUnregister(db1)
         assertEquals(initialManager, TransactionManager.manager)
-        val db2 = TestDB.H2.connect()
+        val db2 = TestDB.Jdbc.H2.connect()
         // Check should be made in a separate thread as in current thread manager is already initialized
         thread {
             assertEquals(TransactionManager.managerFor(db2), TransactionManager.manager)

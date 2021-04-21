@@ -97,7 +97,7 @@ class DDLTests : DatabaseTestsBase() {
         val TestTable = object : Table("test_named_table") {
         }
 
-        withDb (TestDB.Jdbc.H2) {
+        withDb(TestDB.Jdbc.H2) {
             assertEquals("CREATE TABLE IF NOT EXISTS ${"test_named_table".inProperCase()}", TestTable.ddl)
             DMLTestsData.Users.select {
                 exists(DMLTestsData.UserData.select { DMLTestsData.Users.id eq DMLTestsData.UserData.user_id })
@@ -115,7 +115,8 @@ class DDLTests : DatabaseTestsBase() {
         }
 
         withTables(excludeSettings = listOf(TestDB.Jdbc.MYSQL, TestDB.Jdbc.ORACLE, TestDB.Jdbc.MARIADB, TestDB.Jdbc.SQLITE), tables = arrayOf(TestTable)) {
-            assertEquals("CREATE TABLE " + addIfNotExistsIfSupported() + "${"different_column_types".inProperCase()} " +
+            assertEquals(
+                "CREATE TABLE " + addIfNotExistsIfSupported() + "${"different_column_types".inProperCase()} " +
                     "(${"id".inProperCase()} ${currentDialectTest.dataTypeProvider.integerAutoincType()} NOT NULL, " +
                     "\"${"name".inProperCase()}\" VARCHAR(42) PRIMARY KEY, " +
                     "${"age".inProperCase()} ${currentDialectTest.dataTypeProvider.integerType()} NULL)",

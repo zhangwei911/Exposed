@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 class UnionTests : DatabaseTestsBase() {
     @Test
     fun `test limit`() {
-        withCitiesAndUsers(exclude = listOf(TestDB.SQLSERVER)) { _, users, _ ->
+        withCitiesAndUsers(exclude = listOf(TestDB.Jdbc.SQLSERVER)) { _, users, _ ->
             val andreyQuery = users.select { users.id eq "andrey" }
             val sergeyQuery = users.select { users.id.eq("sergey") }
             andreyQuery.union(sergeyQuery).limit(1).map { it[users.id] }.apply {
@@ -24,7 +24,7 @@ class UnionTests : DatabaseTestsBase() {
 
     @Test
     fun `test limit with offset`() {
-        withCitiesAndUsers(exclude = listOf(TestDB.SQLSERVER)) { _, users, _ ->
+        withCitiesAndUsers(exclude = listOf(TestDB.Jdbc.SQLSERVER)) { _, users, _ ->
             val andreyQuery = users.select { users.id eq "andrey" }
             val sergeyQuery = users.select { users.id.eq("sergey") }
             andreyQuery.union(sergeyQuery).limit(1, 1).map { it[users.id] }.apply {

@@ -16,7 +16,7 @@ class ConnectionTests : DatabaseTestsBase() {
 
     @Test
     fun testGettingColumnMetadata() {
-        withDb (TestDB.Jdbc.H2){
+        withDb(TestDB.Jdbc.H2) {
             SchemaUtils.create(People)
 
             val columnMetadata = connection.metadata {

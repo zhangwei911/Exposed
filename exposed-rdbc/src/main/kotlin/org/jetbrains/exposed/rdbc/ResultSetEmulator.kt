@@ -1,12 +1,12 @@
 package org.jetbrains.exposed.rdbc
 
 import kotlinx.coroutines.reactive.awaitFirst
-import kotlinx.coroutines.reactive.awaitFirstOrNull
 import kotlinx.coroutines.runBlocking
 import java.io.InputStream
 import java.io.Reader
 import java.math.BigDecimal
 import java.net.URL
+import java.nio.ByteBuffer
 import java.sql.*
 import java.sql.Array
 import java.sql.Date
@@ -17,11 +17,11 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
     private val iterator = rows.iterator()
     private var currentRow: List<Any?>? = null
     private val columnsMapping by lazy {
-        rows.firstOrNull().orEmpty().mapIndexed { index, value -> value.first to index + 1 }.
-        groupBy(
-            keySelector = { it.first },
-            valueTransform = { it.second }
-        ).filterValues { it.size > 1 }.mapValues { it.value.single() }
+        rows.firstOrNull().orEmpty().mapIndexed { index, value -> value.first to index + 1 }
+            .groupBy(
+                keySelector = { it.first },
+                valueTransform = { it.second }
+            ).filterValues { it.size > 1 }.mapValues { it.value.single() }
     }
 
     override fun <T : Any?> unwrap(iface: Class<T>?): T = TODO()
@@ -31,7 +31,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
     }
 
     override fun close() {
-       /* nothing */
+        /* nothing */
     }
 
     override fun next(): Boolean {
@@ -44,15 +44,15 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
         }
     }
 
-    private fun <T:Any> get(columnIndex: Int) = currentRow?.get(columnIndex - 1) as? T
-    private fun <T:Any> get(columnName: String) = columnsMapping[columnName]?.let { currentRow?.get(it) } as? T
+    private fun <T : Any> get(columnIndex: Int) = currentRow?.get(columnIndex - 1) as? T
+    private fun <T : Any> get(columnName: String) = columnsMapping[columnName]?.let { currentRow?.get(it) } as? T
 
     override fun wasNull(): Boolean {
         TODO("not implemented")
     }
 
     override fun getString(columnIndex: Int): String? = get(columnIndex)
-    
+
     override fun getString(columnLabel: String): String? = get(columnLabel)
 
     override fun getBoolean(columnIndex: Int): Boolean {
@@ -120,11 +120,13 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
     }
 
     override fun getBytes(columnIndex: Int): ByteArray? {
-        return get(columnIndex)
+        val value = get<Any>(columnIndex) ?: return null
+        return (value as? ByteBuffer)?.array() ?: value as ByteArray
     }
 
     override fun getBytes(columnLabel: String): ByteArray? {
-        return get(columnLabel)
+        val value = get<Any>(columnLabel) ?: return null
+        return (value as? ByteBuffer)?.array() ?: value as ByteArray
     }
 
     override fun getDate(columnIndex: Int): Date {
@@ -216,7 +218,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
     }
 
     override fun getObject(columnIndex: Int): Any? {
-        return when(val value = get<Any>(columnIndex)) {
+        return when (val value = get<Any>(columnIndex)) {
             is io.r2dbc.spi.Clob -> runBlocking {
                 value.stream().awaitFirst()
             }
@@ -785,5 +787,4 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
     override fun updateNCharacterStream(columnLabel: String?, reader: Reader?) {
         TODO("not implemented")
     }
-
 }

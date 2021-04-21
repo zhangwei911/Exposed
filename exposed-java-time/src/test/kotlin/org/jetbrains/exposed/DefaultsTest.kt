@@ -315,8 +315,8 @@ class DefaultsTest : DatabaseTestsBase() {
         }
 
         withTables(foo) {
-            val dt2020 = LocalDateTime.now()//DateTime(2020, 1, 1, 1, 1)
-            foo.insert {/* it[dt] = DateTime(2019, 1, 1, 1, 1)*/ }
+            val dt2020 = LocalDateTime.now() // DateTime(2020, 1, 1, 1, 1)
+            foo.insert { /* it[dt] = DateTime(2019, 1, 1, 1, 1)*/ }
             foo.insert { /*it[dt] = dt2020*/ }
             foo.insert { /*it[dt] = DateTime(2021, 1, 1, 1, 1) */ }
             addLogger(StdOutSqlLogger)

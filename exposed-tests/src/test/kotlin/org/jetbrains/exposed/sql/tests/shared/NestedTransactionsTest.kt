@@ -3,6 +3,7 @@ package org.jetbrains.exposed.sql.tests.shared
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
+import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.dml.DMLTestsData
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
@@ -14,7 +15,8 @@ class NestedTransactionsTest : DatabaseTestsBase() {
 
     @Test
     fun testNestedTransactions() {
-        withTables(DMLTestsData.Cities) {
+        val h2rdbc = TestDB.values() - TestDB.Rdbc.H2
+        withTables(h2rdbc, DMLTestsData.Cities) {
             try {
                 db.useNestedTransactions = true
                 assertTrue(DMLTestsData.Cities.selectAll().empty())

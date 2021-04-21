@@ -24,7 +24,6 @@ import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.junit.Test
-import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -286,15 +285,14 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
         }
 
         withTables(foo) {
-            val dt2020 = DateTime.now()//DateTime(2020, 1, 1, 1, 1)
-            foo.insert {/* it[dt] = DateTime(2019, 1, 1, 1, 1)*/ }
+            val dt2020 = DateTime.now() // DateTime(2020, 1, 1, 1, 1)
+            foo.insert { /* it[dt] = DateTime(2019, 1, 1, 1, 1)*/ }
             foo.insert { /*it[dt] = dt2020*/ }
             foo.insert { /*it[dt] = DateTime(2021, 1, 1, 1, 1) */ }
             val count = foo.select { foo.dt.between(dt2020.minusWeeks(1), dt2020.plusWeeks(1)) }.count()
             assertEquals(3, count)
         }
     }
-
 
     @Test
     fun testGreaterFunction() {

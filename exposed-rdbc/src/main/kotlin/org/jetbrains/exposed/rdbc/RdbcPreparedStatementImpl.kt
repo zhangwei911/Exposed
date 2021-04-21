@@ -4,13 +4,14 @@ import io.r2dbc.spi.Statement
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.reactive.*
 import kotlinx.coroutines.runBlocking
+import org.jetbrains.exposed.sql.IColumnType
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
 import java.io.InputStream
 import java.sql.ResultSet
 
 class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi {
 
-    private var executedResultSet : ResultSetEmulator? = null
+    private var executedResultSet: ResultSetEmulator? = null
 
     override var fetchSize: Int? = 0
 
@@ -46,22 +47,23 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
     }
 
     override fun executeUpdate(): Int = runBlocking {
-        return@runBlocking executeAndPrepareResultSet()
+        executeAndPrepareResultSet()
     }
 
     override val resultSet: ResultSet?
         get() = executedResultSet
 
-    override fun set(index: Int, value: Any?) {
-        when {
-            value != null && value is InputStream -> statement.bind(index - 1, value.readBytes())
-            value != null -> statement.bind(index - 1, value)
-            else -> statement.bindNull(index - 1, String::class.java)
-        }
+
+    override fun setNull(index: Int, columnType: IColumnType) {
+        statement.bindNull(index - 1, String::class.java)
     }
 
-    override fun setInputStream(index: Int, inputStream: InputStream?) {
-        set(index, inputStream)
+    override fun setInputStream(index: Int, inputStream: InputStream) {
+        statement.bind(index - 1, inputStream.readBytes())
+    }
+
+    override fun set(index: Int, value: Any) {
+        statement.bind(index - 1, value)
     }
 
     override fun closeIfPossible() {
@@ -74,5 +76,4 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
             executedResultSet!!.rows.map { 1 }
         }
     }
-
 }

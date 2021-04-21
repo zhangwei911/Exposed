@@ -1217,6 +1217,7 @@ class EntityTests : DatabaseTestsBase() {
             }
 
             commit()
+            entityCache.clearReferrersCache()
 
             inTopLevelTransaction(Connection.TRANSACTION_SERIALIZABLE, 1) {
                 Student.all().first().load(Student::bio)

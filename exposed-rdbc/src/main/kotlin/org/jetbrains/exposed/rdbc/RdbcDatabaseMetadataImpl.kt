@@ -1,11 +1,6 @@
 package org.jetbrains.exposed.rdbc
 
-import io.r2dbc.spi.Connection
-import io.r2dbc.spi.ConnectionFactoryOptions
-import io.r2dbc.spi.ConnectionFactoryOptions.DATABASE
-import io.r2dbc.spi.ConnectionFactoryOptions.HOST
 import io.r2dbc.spi.ConnectionMetadata
-import io.r2dbc.spi.Option
 import org.jetbrains.exposed.sql.ForeignKeyConstraint
 import org.jetbrains.exposed.sql.Index
 import org.jetbrains.exposed.sql.Table
@@ -14,14 +9,12 @@ import org.jetbrains.exposed.sql.statements.api.IdentifierManagerApi
 import org.jetbrains.exposed.sql.statements.api.identifiers.H2PredefinedIdentifierManager
 import org.jetbrains.exposed.sql.statements.api.identifiers.PostgrePredefinedIdentifierManager
 import org.jetbrains.exposed.sql.vendors.ColumnMetadata
-import org.reactivestreams.Publisher
 import java.math.BigDecimal
 
-class RdbcDatabaseMetadataImpl(/*private val options: ConnectionFactoryOptions, */val metadata: ConnectionMetadata)
-    : ExposedDatabaseMetadata("")
-{
+class RdbcDatabaseMetadataImpl(/*private val options: ConnectionFactoryOptions, */val metadata: ConnectionMetadata) :
+    ExposedDatabaseMetadata("") {
     override val url: String
-        get() = ""//options.getValue(HOST)!!
+        get() = "" // options.getValue(HOST)!!
 
     override val version: BigDecimal
         get() = BigDecimal(metadata.databaseVersion)
@@ -57,7 +50,7 @@ class RdbcDatabaseMetadataImpl(/*private val options: ConnectionFactoryOptions, 
     override fun cleanCache() = unsupportedByRdbcDriver()
 
     override val identifierManager: IdentifierManagerApi
-        get() = when(metadata.databaseProductName) {
+        get() = when (metadata.databaseProductName) {
             "H2" -> H2PredefinedIdentifierManager
             "PostgreSQL" -> PostgrePredefinedIdentifierManager
             else -> error("Unsupported driver ${metadata.databaseProductName}")

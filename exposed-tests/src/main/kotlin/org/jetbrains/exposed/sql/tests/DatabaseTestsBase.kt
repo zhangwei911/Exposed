@@ -5,14 +5,12 @@ import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
 import io.r2dbc.h2.H2ConnectionOption
 import io.r2dbc.spi.ConnectionFactory
-import org.h2.engine.Mode
 import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.rdbc.connect
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
-import org.reactivestreams.Publisher
 import org.testcontainers.containers.MySQLContainer
 import java.sql.Connection
 import java.util.*
@@ -23,11 +21,11 @@ import kotlin.reflect.KVisibility
 sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished: () -> Unit = {}) {
     lateinit var db: Database
 
-    protected abstract fun initDatabase() : Database
+    protected abstract fun initDatabase(): Database
 
-    open val name : String get() = this::class.simpleName!!
+    open val name: String get() = this::class.simpleName!!
 
-    fun connect() : Database {
+    fun connect(): Database {
         db = initDatabase()
         return db
     }
@@ -75,7 +73,6 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
             afterTestFinished = { if (runTestContainersMySQL()) mySQLProcess.close() }
         )
 
-
         object POSTGRESQL : Jdbc(
             connection = { "jdbc:postgresql://localhost:12346/template1?user=postgres&password=&lc_messages=en_US.UTF-8" },
             driver = "org.postgresql.Driver",
@@ -118,10 +115,10 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         object SQLSERVER : Jdbc(
             connection = {
                 "jdbc:sqlserver://${System.getProperty("exposed.test.sqlserver.host", "192.168.99.100")}:${
-                    System.getProperty(
-                        "exposed.test.sqlserver.port",
-                        "32781"
-                    )
+                System.getProperty(
+                    "exposed.test.sqlserver.port",
+                    "32781"
+                )
                 }"
             },
             driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver",
@@ -132,10 +129,10 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         object MARIADB : Jdbc(
             connection = {
                 "jdbc:mariadb://${System.getProperty("exposed.test.mariadb.host", "192.168.99.100")}:${
-                    System.getProperty(
-                        "exposed.test.mariadb.port",
-                        "3306"
-                    )
+                System.getProperty(
+                    "exposed.test.mariadb.port",
+                    "3306"
+                )
                 }/testdb"
             },
             driver = "org.mariadb.jdbc.Driver"
@@ -147,7 +144,7 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         val jdbc: Jdbc
     ) : TestDB({}, {}) {
 
-        override val name: String  = "RDBC.${super.name}"
+        override val name: String = "RDBC.${super.name}"
 
         override fun initDatabase(): Database {
             val jdbcDb = jdbc.connect()
@@ -172,13 +169,13 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
     }
 
     companion object {
-        private fun <T:Any> KClass<out T>.recursiveSealedSubclasses(): List<T> = sealedSubclasses.map { clazz ->
+        private fun <T : Any> KClass<out T>.recursiveSealedSubclasses(): List<T> = sealedSubclasses.map { clazz ->
             clazz.takeIf { it.visibility == KVisibility.PUBLIC }?.objectInstance?.let { listOf(it) } ?: clazz.recursiveSealedSubclasses()
         }.flatten()
 
         private val values by lazy { TestDB::class.recursiveSealedSubclasses() }
 
-        fun values() : List<TestDB> = values
+        fun values(): List<TestDB> = values
 
         fun enabledInTests(): List<TestDB> {
             val embeddedTests = (values - Jdbc.ORACLE - Jdbc.SQLSERVER - Jdbc.MARIADB).joinToString { it.name }
@@ -288,9 +285,9 @@ abstract class DatabaseTestsBase {
         }
     }
 
-    fun withTables (vararg tables: Table, statement: Transaction.(TestDB) -> Unit) = withTables(excludeSettings = emptyList(), tables = tables, statement = statement)
+    fun withTables(vararg tables: Table, statement: Transaction.(TestDB) -> Unit) = withTables(excludeSettings = emptyList(), tables = tables, statement = statement)
 
-    fun withSchemas (vararg schemas: Schema, statement: Transaction.() -> Unit) = withSchemas(excludeSettings = emptyList(), schemas = schemas, statement = statement)
+    fun withSchemas(vararg schemas: Schema, statement: Transaction.() -> Unit) = withSchemas(excludeSettings = emptyList(), schemas = schemas, statement = statement)
 
     fun addIfNotExistsIfSupported() = if (currentDialectTest.supportsIfNotExists) {
         "IF NOT EXISTS "

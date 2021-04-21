@@ -8,11 +8,11 @@ import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.reactivestreams.Publisher
 
-fun <T:Publisher<out Connection>> Database.Companion.connect(
+fun <T : Publisher<out Connection>> Database.Companion.connect(
     connection: T,
     jdbcConnection: (() -> JdbcConnection)? = null,
     dispatcher: CoroutineDispatcher? = null
-) : Database {
+): Database {
     val scope = RdbcScope(dispatcher)
     return Database {
         RdbcConnectionImpl(connection, scope, jdbcConnection)
