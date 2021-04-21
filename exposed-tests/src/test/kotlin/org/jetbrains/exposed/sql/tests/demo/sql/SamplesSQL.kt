@@ -27,7 +27,7 @@ fun main() {
     transaction {
         addLogger(StdOutSqlLogger)
 
-        SchemaUtils.create (Cities, Users)
+        SchemaUtils.create(Cities, Users)
 
         val saintPetersburgId = Cities.insert {
             it[name] = "St. Petersburg"
@@ -74,11 +74,11 @@ fun main() {
             it[Users.cityId] = null
         }
 
-        Users.update({ Users.id eq "alex"}) {
+        Users.update({ Users.id eq "alex" }) {
             it[name] = "Alexey"
         }
 
-        Users.deleteWhere{ Users.name like "%thing"}
+        Users.deleteWhere { Users.name like "%thing" }
 
         println("All cities:")
 
@@ -87,24 +87,24 @@ fun main() {
         }
 
         println("Manual join:")
-        (Users innerJoin Cities).slice(Users.name, Cities.name).
-            select {(Users.id.eq("andrey") or Users.name.eq("Sergey")) and
-                    Users.id.eq("sergey") and Users.cityId.eq(Cities.id)}.forEach {
-            println("${it[Users.name]} lives in ${it[Cities.name]}")
-        }
+        (Users innerJoin Cities).slice(Users.name, Cities.name)
+            .select {
+                (Users.id.eq("andrey") or Users.name.eq("Sergey")) and
+                    Users.id.eq("sergey") and Users.cityId.eq(Cities.id)
+            }.forEach {
+                println("${it[Users.name]} lives in ${it[Cities.name]}")
+            }
 
         println("Join with foreign key:")
 
-
-        (Users innerJoin Cities).slice(Users.name, Users.cityId, Cities.name).
-                select { Cities.name.eq("St. Petersburg") or Users.cityId.isNull()}.forEach {
-            if (it[Users.cityId] != null) {
-                println("${it[Users.name]} lives in ${it[Cities.name]}")
+        (Users innerJoin Cities).slice(Users.name, Users.cityId, Cities.name)
+            .select { Cities.name.eq("St. Petersburg") or Users.cityId.isNull() }.forEach {
+                if (it[Users.cityId] != null) {
+                    println("${it[Users.name]} lives in ${it[Cities.name]}")
+                } else {
+                    println("${it[Users.name]} lives nowhere")
+                }
             }
-            else {
-                println("${it[Users.name]} lives nowhere")
-            }
-        }
 
         println("Functions and group by:")
 
@@ -119,13 +119,13 @@ fun main() {
             }
         }
 
-        SchemaUtils.drop (Users, Cities)
+        SchemaUtils.drop(Users, Cities)
     }
 }
 
 class SamplesSQL {
     @Test
-    fun ensureSamplesDoesntCrash(){
+    fun ensureSamplesDoesntCrash() {
         main()
     }
 }

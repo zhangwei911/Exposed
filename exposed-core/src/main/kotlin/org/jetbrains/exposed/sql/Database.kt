@@ -19,7 +19,7 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
 
     var useNestedTransactions: Boolean = false
 
-    internal fun <T> metadata(body: ExposedDatabaseMetadata.() -> T) : T {
+    internal fun <T> metadata(body: ExposedDatabaseMetadata.() -> T): T {
         val transaction = TransactionManager.currentOrNull()
         return if (transaction == null) {
             val connection = connector()
@@ -93,7 +93,7 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
             registerDialect(MariaDBDialect.dialectName) { MariaDBDialect() }
         }
 
-        fun registerDialect(prefix:String, dialect: () -> DatabaseDialect) {
+        fun registerDialect(prefix: String, dialect: () -> DatabaseDialect) {
             dialects[prefix] = dialect
         }
 

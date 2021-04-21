@@ -195,10 +195,10 @@ private val registeredOnShutdown = HashSet<TestDB>()
 
 private val postgresSQLProcess by lazy {
     EmbeddedPostgres.builder()
-            .setPgBinaryResolver{ system, _ ->
-                EmbeddedPostgres::class.java.getResourceAsStream("/postgresql-$system-x86_64.txz")
-            }
-            .setPort(12346).start()
+        .setPgBinaryResolver { system, _ ->
+            EmbeddedPostgres::class.java.getResourceAsStream("/postgresql-$system-x86_64.txz")
+        }
+        .setPort(12346).start()
 }
 
 // MySQLContainer has to be extended, otherwise it leads to Kotlin compiler issues: https://github.com/testcontainers/testcontainers-java/issues/318
@@ -206,11 +206,11 @@ internal class SpecifiedMySQLContainer(val image: String) : MySQLContainer<Speci
 
 private val mySQLProcess by lazy {
     SpecifiedMySQLContainer(image = "mysql:5")
-            .withDatabaseName("testdb")
-            .withEnv("MYSQL_ROOT_PASSWORD", "test")
-            .withExposedPorts().apply {
-               start()
-            }
+        .withDatabaseName("testdb")
+        .withEnv("MYSQL_ROOT_PASSWORD", "test")
+        .withExposedPorts().apply {
+            start()
+        }
 }
 
 private fun runTestContainersMySQL(): Boolean =
@@ -228,10 +228,12 @@ abstract class DatabaseTestsBase {
 
         if (dbSettings !in registeredOnShutdown) {
             dbSettings.beforeConnection()
-            Runtime.getRuntime().addShutdownHook(thread(false){
-                dbSettings.afterTestFinished()
-                registeredOnShutdown.remove(dbSettings)
-            })
+            Runtime.getRuntime().addShutdownHook(
+                thread(false) {
+                    dbSettings.afterTestFinished()
+                    registeredOnShutdown.remove(dbSettings)
+                }
+            )
             registeredOnShutdown += dbSettings
             dbSettings.connect()
         }
@@ -243,7 +245,7 @@ abstract class DatabaseTestsBase {
         }
     }
 
-    fun withDb(db : List<TestDB>? = null, excludeSettings: List<TestDB> = emptyList(), statement: Transaction.(TestDB) -> Unit) {
+    fun withDb(db: List<TestDB>? = null, excludeSettings: List<TestDB> = emptyList(), statement: Transaction.(TestDB) -> Unit) {
         val enabledInTests = TestDB.enabledInTests()
         val toTest = db?.intersect(enabledInTests) ?: enabledInTests - excludeSettings
         toTest.forEach { dbSettings ->
@@ -255,7 +257,7 @@ abstract class DatabaseTestsBase {
         }
     }
 
-    fun withTables (excludeSettings: List<TestDB>, vararg tables: Table, statement: Transaction.(TestDB) -> Unit) {
+    fun withTables(excludeSettings: List<TestDB>, vararg tables: Table, statement: Transaction.(TestDB) -> Unit) {
         (TestDB.enabledInTests() - excludeSettings).forEach { testDB ->
             withDb(testDB) {
                 SchemaUtils.create(*tables)
@@ -270,7 +272,7 @@ abstract class DatabaseTestsBase {
         }
     }
 
-    fun withSchemas (excludeSettings: List<TestDB>, vararg schemas: Schema, statement: Transaction.() -> Unit) {
+    fun withSchemas(excludeSettings: List<TestDB>, vararg schemas: Schema, statement: Transaction.() -> Unit) {
         (TestDB.enabledInTests() - excludeSettings).forEach { testDB ->
             withDb(testDB) {
                 SchemaUtils.createSchema(*schemas)
@@ -295,5 +297,4 @@ abstract class DatabaseTestsBase {
     } else {
         ""
     }
-
 }

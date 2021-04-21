@@ -21,9 +21,9 @@ import kotlin.test.assertNull
 
 class MultiDatabaseEntityTest {
 
-    private val db1 by lazy { Database.connect("jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "")}
-    private val db2 by lazy { Database.connect("jdbc:h2:mem:db2;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "")}
-    private var currentDB : Database? = null
+    private val db1 by lazy { Database.connect("jdbc:h2:mem:db1;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "") }
+    private val db2 by lazy { Database.connect("jdbc:h2:mem:db2;DB_CLOSE_DELAY=-1;", "org.h2.Driver", "root", "") }
+    private var currentDB: Database? = null
 
     @Before
     fun before() {
@@ -48,7 +48,6 @@ class MultiDatabaseEntityTest {
             SchemaUtils.drop(EntityTestsData.XTable, EntityTestsData.YTable)
         }
     }
-
 
     @Test
     fun testSimpleCreateEntitiesInDifferentDatabase() {
@@ -154,11 +153,11 @@ class MultiDatabaseEntityTest {
         var db1y1 by Delegates.notNull<EntityTestsData.YEntity>()
         var db2y1 by Delegates.notNull<EntityTestsData.YEntity>()
         transaction(db1) {
-            db1b1 = EntityTestsData.BEntity.new(1) {  }
-            
+            db1b1 = EntityTestsData.BEntity.new(1) { }
+
             transaction(db2) {
                 assertEquals(0L, EntityTestsData.BEntity.count())
-                db2b1 = EntityTestsData.BEntity.new(2) {  }
+                db2b1 = EntityTestsData.BEntity.new(2) { }
                 db2y1 = EntityTestsData.YEntity.new("2") { }
                 db2b1.y = db2y1
             }
@@ -176,7 +175,6 @@ class MultiDatabaseEntityTest {
                 assertEquals(db2b1.id, b2Reread.id)
                 assertEquals(db2y1.id, b2Reread.y?.id)
                 b2Reread.y = null
-
             }
         }
         inTopLevelTransaction(Connection.TRANSACTION_READ_COMMITTED, 1, db1) {
@@ -191,7 +189,7 @@ class MultiDatabaseEntityTest {
     @Test(expected = IllegalStateException::class)
     fun crossReferencesProhibitedForEntitiesFromDifferentDB() {
         transaction(db1) {
-            val db1b1 = EntityTestsData.BEntity.new(1) {  }
+            val db1b1 = EntityTestsData.BEntity.new(1) { }
 
             transaction(db2) {
                 assertEquals(0L, EntityTestsData.BEntity.count())

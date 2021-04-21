@@ -1,7 +1,7 @@
 package org.jetbrains.exposed.sql.tests.demo.dao
 
-import org.jetbrains.exposed.dao.id.*
 import org.jetbrains.exposed.dao.*
+import org.jetbrains.exposed.dao.id.*
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.sql.*
@@ -14,7 +14,7 @@ object Users : IntIdTable() {
     val age = integer("age")
 }
 
-object Cities: IntIdTable() {
+object Cities : IntIdTable() {
     val name = varchar("name", 50)
 }
 
@@ -39,7 +39,7 @@ fun main() {
     transaction {
         addLogger(StdOutSqlLogger)
 
-        SchemaUtils.create (Cities, Users)
+        SchemaUtils.create(Cities, Users)
 
         val stPete = City.new {
             name = "St. Petersburg"
@@ -75,7 +75,7 @@ fun main() {
 
 class SamplesDao {
     @Test
-    fun ensureSamplesDoesntCrash(){
+    fun ensureSamplesDoesntCrash() {
         main()
     }
 }
