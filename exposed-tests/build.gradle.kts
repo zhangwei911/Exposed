@@ -33,6 +33,8 @@ dependencies {
     implementation("org.testcontainers", "mysql", "1.14.3")
 
     implementation("com.h2database", "h2", Versions.h2)
+    implementation("io.r2dbc", "r2dbc-postgresql", Versions.r2dbcVersion)
+    implementation("io.r2dbc", "r2dbc-h2", Versions.r2dbcVersion)
 
     setupTestDriverDependencies(dialect) { group, artifactId, version ->
         testImplementation(group, artifactId, version)

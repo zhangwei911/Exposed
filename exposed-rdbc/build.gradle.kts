@@ -10,11 +10,7 @@ repositories {
 
 dependencies {
     api(project(":exposed-jdbc"))
-    api("io.r2dbc", "r2dbc-spi", "0.8.2.RELEASE")
-    api("io.r2dbc", "r2dbc-postgresql", "0.8.2.RELEASE")
-    api("io.r2dbc", "r2dbc-h2", "0.8.2.RELEASE") {
-//        exclude("com.h2database")
-    }
-//    api("org.jetbrains.kotlinx", "kotlinx-coroutines-core", Versions.kotlinCoroutines)
+    api("io.r2dbc", "r2dbc-spi", Versions.r2dbcVersion)
+
     api("org.jetbrains.kotlinx", "kotlinx-coroutines-reactive", Versions.kotlinCoroutines)
 }
