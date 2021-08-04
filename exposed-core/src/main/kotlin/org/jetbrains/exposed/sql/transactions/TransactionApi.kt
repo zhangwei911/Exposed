@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 interface TransactionInterface {
 
-    val db : Database
+    val db: Database
 
     val connection: ExposedConnection<*>
 
@@ -49,7 +49,7 @@ interface TransactionManager {
 
     var defaultRepetitionAttempts: Int
 
-    fun newTransaction(isolation: Int = defaultIsolationLevel, outerTransaction: Transaction? = null) : Transaction
+    fun newTransaction(isolation: Int = defaultIsolationLevel, outerTransaction: Transaction? = null): Transaction
 
     fun currentOrNull(): Transaction?
 
@@ -67,6 +67,9 @@ interface TransactionManager {
         private val registeredDatabases = ConcurrentHashMap<Database, TransactionManager>()
 
         fun registerManager(database: Database, manager: TransactionManager) {
+            if (defaultDatabase == null) {
+                currentThreadManager.remove()
+            }
             registeredDatabases[database] = manager
             databases.push(database)
         }
@@ -93,8 +96,7 @@ interface TransactionManager {
         val manager: TransactionManager
             get() = currentThreadManager.get()
 
-
-        fun resetCurrent(manager: TransactionManager?)  {
+        fun resetCurrent(manager: TransactionManager?) {
             manager?.let { currentThreadManager.set(it) } ?: currentThreadManager.remove()
         }
 
@@ -108,20 +110,21 @@ interface TransactionManager {
     }
 }
 
-internal fun TransactionInterface.rollbackLoggingException(log: (Exception) -> Unit){
+internal fun TransactionInterface.rollbackLoggingException(log: (Exception) -> Unit) {
     try {
         rollback()
-    } catch (e: Exception){
+    } catch (e: Exception) {
         log(e)
     }
 }
 
-internal inline fun TransactionInterface.closeLoggingException(log: (Exception) -> Unit){
+internal inline fun TransactionInterface.closeLoggingException(log: (Exception) -> Unit) {
     try {
         close()
-    } catch (e: Exception){
+    } catch (e: Exception) {
         log(e)
     }
 }
 
-val Database?.transactionManager: TransactionManager get() = TransactionManager.managerFor(this) ?: throw RuntimeException("database ${this} don't have any transaction manager")
+val Database?.transactionManager: TransactionManager
+    get() = TransactionManager.managerFor(this) ?: throw RuntimeException("database $this don't have any transaction manager")

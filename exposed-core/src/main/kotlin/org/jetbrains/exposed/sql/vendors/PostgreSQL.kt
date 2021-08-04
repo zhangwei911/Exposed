@@ -7,6 +7,7 @@ import java.util.*
 
 internal object PostgreSQLDataTypeProvider : DataTypeProvider() {
     override fun byteType(): String = "SMALLINT"
+    override fun floatType(): String = "REAL"
     override fun integerAutoincType(): String = "SERIAL"
     override fun longAutoincType(): String = "BIGSERIAL"
     override fun uuidType(): String = "uuid"
@@ -16,7 +17,6 @@ internal object PostgreSQLDataTypeProvider : DataTypeProvider() {
         return binaryType()
     }
 
-    override val blobAsStream: Boolean = true
     override fun blobType(): String = "bytea"
     override fun uuidToDB(value: UUID): Any = value
     override fun dateTimeType(): String = "TIMESTAMP"
@@ -127,9 +127,7 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
             transaction.throwUnsupportedException("PostgreSQL doesn't support LIMIT in UPDATE clause.")
         }
         val tableToUpdate = columnsAndValues.map { it.first.table }.distinct().singleOrNull()
-        if (tableToUpdate == null) {
-            transaction.throwUnsupportedException("PostgreSQL supports a join updates with a single table columns to update.")
-        }
+            ?: transaction.throwUnsupportedException("PostgreSQL supports a join updates with a single table columns to update.")
         if (targets.joinParts.any { it.joinType != JoinType.INNER }) {
             exposedLogger.warn("All tables in UPDATE statement will be joined with inner join")
         }
@@ -153,10 +151,9 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
             it.appendConditions(this)
         }
         where?.let {
-            + " AND "
+            +" AND "
             +it
         }
-        limit?.let { +" LIMIT $it" }
         toString()
     }
 
@@ -181,7 +178,9 @@ internal object PostgreSQLFunctionProvider : FunctionProvider() {
             transaction.throwUnsupportedException("PostgreSQL replace table must supply at least one primary key.")
         }
         val conflictKey = uniqueCols.joinToString { transaction.identity(it) }
-        return def + "ON CONFLICT ($conflictKey) DO UPDATE SET " + columns.joinToString { "${transaction.identity(it)}=EXCLUDED.${transaction.identity(it)}" }
+        return def + "ON CONFLICT ($conflictKey) DO UPDATE SET " + columns.joinToString {
+            "${transaction.identity(it)}=EXCLUDED.${transaction.identity(it)}"
+        }
     }
 
     override fun delete(
