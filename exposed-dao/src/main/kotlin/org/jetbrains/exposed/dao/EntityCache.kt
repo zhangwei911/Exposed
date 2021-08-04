@@ -14,7 +14,7 @@ class EntityCache(private val transaction: Transaction) {
     private var flushingEntities = false
     val data = LinkedHashMap<IdTable<*>, MutableMap<Any, Entity<*>>>()
     internal val inserts = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
-    internal val updates = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
+    private val updates = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
     internal val referrers = HashMap<Column<*>, MutableMap<EntityID<*>, SizedIterable<*>>>()
 
     private fun getMap(f: EntityClass<*, *>): MutableMap<Any, Entity<*>> = getMap(f.table)

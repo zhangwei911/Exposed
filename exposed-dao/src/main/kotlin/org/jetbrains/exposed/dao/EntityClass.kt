@@ -357,11 +357,11 @@ abstract class EntityClass<ID : Comparable<ID>, out T : Entity<ID>>(val table: I
                 val result = entities.groupBy { it.readValues[refColumn] }
 
                 distinctRefIds.forEach { id ->
-                    cache.getOrPutReferrers(id, refColumn) { result[id]?.let { SizedCollection(it) } ?: emptySized<T>() }
+                    cache.getOrPutReferrers(id, refColumn) { result[id]?.let { SizedCollection(it) } ?: emptySized() }
                 }
             }
 
-            return distinctRefIds.flatMap { cache.referrers[it]?.get(refColumn)?.toList().orEmpty() } as List<T>
+            return distinctRefIds.flatMap { cache.getReferrers<T>(it, refColumn)?.toList().orEmpty() }
         } else {
             val baseQuery = searchQuery(Op.build { refColumn inList distinctRefIds })
             val finalQuery = if (parentTable.id in baseQuery.set.fields) {
