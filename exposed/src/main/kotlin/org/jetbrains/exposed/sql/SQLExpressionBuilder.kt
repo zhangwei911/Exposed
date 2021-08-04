@@ -216,4 +216,44 @@ object SqlExpressionBuilder {
 
     fun <T:String?> concat(vararg expr: Expression<T>) = Concat("", *expr)
     fun <T:String?> concat(separator: String = "", expr: List<Expression<T>>) = Concat(separator, *expr.toTypedArray())
+
+    /**
+     * Performs a bitwise `and` on this expression and [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.bitwiseAnd(t: T): AndBitOp<T, T> = AndBitOp(this, wrap(t), columnType)
+
+    /**
+     * Performs a bitwise `and` on this expression and expression [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.bitwiseAnd(t: Expression<T>): AndBitOp<T, T> = AndBitOp(this, t, columnType)
+
+    /**
+     * Performs a bitwise `or` on this expression and [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.bitwiseOr(t: T): OrBitOp<T, T> = OrBitOp(this, wrap(t), columnType)
+
+    /**
+     * Performs a bitwise `or` on this expression and expression [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.bitwiseOr(t: Expression<T>): OrBitOp<T, T> = OrBitOp(this, t, columnType)
+
+    /**
+     * Performs a bitwise `or` on this expression and [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.bitwiseXor(t: T): XorBitOp<T, T> = XorBitOp(this, wrap(t), columnType)
+
+    /**
+     * Performs a bitwise `or` on this expression and expression [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.bitwiseXor(t: Expression<T>): XorBitOp<T, T> = XorBitOp(this, t, columnType)
+
+    /**
+     * Performs a bitwise `and` on this expression and [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.hasFlag(t: T): EqOp = EqOp(AndBitOp(this, wrap(t), columnType), wrap(t))
+
+    /**
+     * Performs a bitwise `and` on this expression and expression [t].
+     */
+    infix fun <T> ExpressionWithColumnType<T>.hasFlag(t: Expression<T>): EqOp = EqOp(AndBitOp(this, t, columnType), wrap(t))
 }
