@@ -177,7 +177,7 @@ class DDLTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(bar, id)
         }
 
-        withTables(excludeSettings = listOf(TestDB.SQLITE), Foo) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.SQLITE), Foo) {
             Foo.insert {
                 it[Foo.bar] = 1
             }
@@ -191,7 +191,7 @@ class DDLTests : DatabaseTestsBase() {
             assertEquals(2, result[1].second)
         }
 
-        withDb(TestDB.SQLITE) {
+        withDb(TestDB.Jdbc.SQLITE) {
             expectException<UnsupportedByDialectException> {
                 SchemaUtils.create(Foo)
             }

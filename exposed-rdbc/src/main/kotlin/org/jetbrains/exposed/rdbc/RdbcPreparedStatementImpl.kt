@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.IColumnType
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
 import java.io.InputStream
 import java.sql.ResultSet
+import kotlin.coroutines.coroutineContext
 
 class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi {
 
@@ -26,33 +27,31 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
         }
     }
 
-    private suspend fun executeAndPrepareResultSet(): Int {
+    private suspend fun executeAndReturnUpdatedRow(): Int {
+        return statement.execute().awaitFirst().rowsUpdated.awaitFirstOrElse { 0 }
+    }
+
+    private suspend fun executeAndPrepareResultSet(): ResultSetEmulator {
         val resultSet = arrayListOf<List<Pair<String, Any?>>>()
-        var updatedRows = 0
-        val executedStatement = statement.execute()
-        executedStatement.collect {
-            updatedRows = it.rowsUpdated.awaitFirstOrElse { 0 }
-            it.map { row, metadata ->
-                metadata.columnMetadatas.mapIndexed { index, columnMetadata ->
-                    columnMetadata.name to row[index]
-                }
-            }.collect {
-                resultSet.add(it)
+        val executedStatement = statement.execute().awaitFirst()
+        executedStatement.map { row, metadata ->
+            metadata.columnMetadatas.mapIndexed { index, columnMetadata ->
+                columnMetadata.name to row[index]
             }
+        }.collect {
+            resultSet.add(it)
         }
-        ResultSetEmulator(resultSet).also {
+        return ResultSetEmulator(resultSet).also {
             executedResultSet = it
         }
-        return updatedRows
     }
 
     override fun executeUpdate(): Int = runBlocking {
-        executeAndPrepareResultSet()
+        executeAndReturnUpdatedRow()
     }
 
     override val resultSet: ResultSet?
         get() = executedResultSet
-
 
     override fun setNull(index: Int, columnType: IColumnType) {
         statement.bindNull(index - 1, String::class.java)
@@ -72,8 +71,11 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
 
     override fun executeBatch(): List<Int> {
         return runBlocking {
-            executeAndPrepareResultSet()
-            executedResultSet!!.rows.map { 1 }
+            executeAndPrepareResultSet().rows.map { 1 }
         }
+    }
+
+    override fun cancel() {
+        // TODO:
     }
 }

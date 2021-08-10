@@ -15,8 +15,7 @@ class NestedTransactionsTest : DatabaseTestsBase() {
 
     @Test
     fun testNestedTransactions() {
-        val h2rdbc = TestDB.values() - TestDB.Rdbc.H2
-        withTables(h2rdbc, DMLTestsData.Cities) {
+        withTables(DMLTestsData.Cities) {
             try {
                 db.useNestedTransactions = true
                 assertTrue(DMLTestsData.Cities.selectAll().empty())

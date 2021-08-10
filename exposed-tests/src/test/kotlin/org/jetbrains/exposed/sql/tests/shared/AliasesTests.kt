@@ -24,8 +24,7 @@ class AliasesTests : DatabaseTestsBase() {
             val name = varchar("name", 256)
         }
 
-        val rdbc = TestDB.values() - TestDB.Rdbc.H2
-        withTables(rdbc, Facilities, Stables) {
+        withTables(Facilities, Stables) {
             val stable1Id = Stables.insertAndGetId {
                 it[Stables.name] = "Stables1"
             }
@@ -53,8 +52,7 @@ class AliasesTests : DatabaseTestsBase() {
 
     @Test
     fun testJoinSubQuery01() {
-        val h2 = TestDB.values() - TestDB.Rdbc.H2
-        withCitiesAndUsers(h2) { cities, users, userData ->
+        withCitiesAndUsers { cities, users, userData ->
             val expAlias = users.name.max().alias("m")
             val usersAlias = users.slice(users.cityId, expAlias).selectAll().groupBy(users.cityId).alias("u2")
             val resultRows = Join(users).join(usersAlias, JoinType.INNER, usersAlias[expAlias], users.name).selectAll().toList()

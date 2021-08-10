@@ -29,7 +29,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(id)
         }
 
-        withTables(excludeSettings = listOf(TestDB.H2_MYSQL), tables = arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.H2_MYSQL), tables = arrayOf(TestTable)) {
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertTrue(TestTable.exists())
             SchemaUtils.drop(TestTable)
@@ -111,7 +111,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(id)
         }
 
-        withDb(db = listOf(TestDB.H2)) {
+        withDb(db = listOf(TestDB.Jdbc.H2)) {
             SchemaUtils.createMissingTablesAndColumns(t1)
             t1.insert { it[foo] = "ABC" }
 

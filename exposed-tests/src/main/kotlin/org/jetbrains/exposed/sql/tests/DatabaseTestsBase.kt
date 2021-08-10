@@ -4,6 +4,8 @@ import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
 import io.r2dbc.h2.H2ConnectionOption
+import io.r2dbc.postgresql.PostgresqlConnectionConfiguration
+import io.r2dbc.postgresql.PostgresqlConnectionFactory
 import io.r2dbc.spi.ConnectionFactory
 import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.rdbc.connect
@@ -166,6 +168,19 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
                     .build()
             ),
             jdbc = Jdbc.H2_RDBC
+        )
+
+        object POSTGRESQL : Rdbc(
+            connectionFactory = PostgresqlConnectionFactory(
+                PostgresqlConnectionConfiguration.builder()
+                    .host("localhost")
+                    .port(12346)
+                    .database("template1")
+                    .username(Jdbc.POSTGRESQL.user)
+                    .password(Jdbc.POSTGRESQL.pass)
+                    .build()
+            ),
+            jdbc = Jdbc.POSTGRESQL
         )
     }
 

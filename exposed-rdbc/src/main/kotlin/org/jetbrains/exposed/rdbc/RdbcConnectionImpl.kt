@@ -93,10 +93,11 @@ class RdbcConnectionImpl(
 
     override fun prepareStatement(sql: String, returnKeys: Boolean): PreparedStatementApi {
         return withConnection {
-            val statement = if (returnKeys)
+            val statement = if (returnKeys) {
                 it.createStatement(sql).returnGeneratedValues()
-            else
+            } else {
                 it.createStatement(sql)
+            }
             RdbcPreparedStatementImpl(statement)
         }
     }

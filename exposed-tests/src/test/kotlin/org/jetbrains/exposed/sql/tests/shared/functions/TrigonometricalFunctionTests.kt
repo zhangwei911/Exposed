@@ -52,7 +52,7 @@ class TrigonometricalFunctionTests : FunctionsTestBase() {
 
     @Test
     fun testCotFunction() {
-        withTable(excludeDB = TestDB.ORACLE) {
+        withTable(excludeDB = TestDB.Jdbc.ORACLE) {
             assertExpressionEqual(BigDecimal("0.642092616"), CotFunction(intLiteral(1)))
             assertExpressionEqual(BigDecimal("3.916317365"), CotFunction(doubleLiteral(0.25)))
             assertExpressionEqual(BigDecimal("3.916317365"), CotFunction(decimalLiteral(BigDecimal("0.25"))))
@@ -61,9 +61,9 @@ class TrigonometricalFunctionTests : FunctionsTestBase() {
 
     @Test
     fun testDegreesFunction() {
-        withTable(excludeDB = TestDB.ORACLE) { testDb ->
+        withTable(excludeDB = TestDB.Jdbc.ORACLE) { testDb ->
             assertExpressionEqual(BigDecimal("0"), DegreesFunction(intLiteral(0)))
-            if (testDb != TestDB.SQLSERVER) {
+            if (testDb != TestDB.Jdbc.SQLSERVER) {
                 assertExpressionEqual(BigDecimal("57.29577951308232"), DegreesFunction(intLiteral(1)))
                 assertExpressionEqual(BigDecimal("14.32394487827058"), DegreesFunction(doubleLiteral(0.25)))
                 assertExpressionEqual(BigDecimal("14.32394487827058"), DegreesFunction(decimalLiteral(BigDecimal("0.25"))))
@@ -77,9 +77,9 @@ class TrigonometricalFunctionTests : FunctionsTestBase() {
 
     @Test
     fun testPiFunction() {
-        withTable(excludeDB = TestDB.ORACLE) { testDb ->
+        withTable(excludeDB = TestDB.Jdbc.ORACLE) { testDb ->
             when (testDb) {
-                TestDB.MYSQL, TestDB.MARIADB -> assertExpressionEqual(BigDecimal("3.141593"), PiFunction)
+                TestDB.Jdbc.MYSQL, TestDB.Jdbc.MARIADB -> assertExpressionEqual(BigDecimal("3.141593"), PiFunction)
                 else -> assertExpressionEqual(BigDecimal("3.141592653589793"), PiFunction)
             }
         }
@@ -87,9 +87,9 @@ class TrigonometricalFunctionTests : FunctionsTestBase() {
 
     @Test
     fun testRadiansFunction() {
-        withTable(excludeDB = TestDB.ORACLE) { testDb ->
+        withTable(excludeDB = TestDB.Jdbc.ORACLE) { testDb ->
             assertExpressionEqual(BigDecimal("0"), RadiansFunction(intLiteral(0)))
-            if (testDb != TestDB.SQLSERVER) {
+            if (testDb != TestDB.Jdbc.SQLSERVER) {
                 assertExpressionEqual(BigDecimal("3.141592653589793"), RadiansFunction(intLiteral(180)))
             } else {
                 assertExpressionEqual(BigDecimal("3"), RadiansFunction(intLiteral(180)))

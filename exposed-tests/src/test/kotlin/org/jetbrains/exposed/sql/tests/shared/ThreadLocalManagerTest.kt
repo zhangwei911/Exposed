@@ -285,8 +285,7 @@ class RollbackTransactionTest : DatabaseTestsBase() {
 
     @Test
     fun testRollbackWithSavepoints() {
-        val r2dc = TestDB.values() - TestDB.Rdbc.H2
-        withTables(r2dc, RollbackTable) {
+        withTables(RollbackTable) {
             try {
                 db.useNestedTransactions = true
                 inTopLevelTransaction(db.transactionManager.defaultIsolationLevel, 1) {

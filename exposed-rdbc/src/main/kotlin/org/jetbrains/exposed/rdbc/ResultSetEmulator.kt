@@ -12,6 +12,7 @@ import java.sql.Array
 import java.sql.Date
 import java.util.*
 
+@Suppress("TooManyFunctions")
 internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>>>) : ResultSet {
 
     private val iterator = rows.iterator()

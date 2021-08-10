@@ -27,7 +27,7 @@ class SQLServerDefaultsTest : DatabaseTestsBase() {
             val sysEnd = datetime("sysEnd").defaultExpression(databaseGeneratedTimestamp())
         }
 
-        withDb(TestDB.SQLSERVER) {
+        withDb(TestDB.Jdbc.SQLSERVER) {
             try {
                 exec(
                     """
@@ -45,7 +45,7 @@ class SQLServerDefaultsTest : DatabaseTestsBase() {
                 val names = listOf("name")
                 val batchInsert: List<ResultRow> =
                     temporalTable.batchInsert(names, shouldReturnGeneratedValues = true) { name ->
-                        this[temporalTable.name] = "name"
+                        this[temporalTable.name] = name
                     }
                 val id = batchInsert.first()[temporalTable.id]
                 val result = temporalTable.select { temporalTable.id eq id }.single()

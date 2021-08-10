@@ -63,10 +63,11 @@ interface IColumnType {
 
     /** Sets the [value] at the specified [index] into the [stmt]. */
     fun setParameter(stmt: PreparedStatementApi, index: Int, value: Any?) {
-        if (value == null)
+        if (value == null) {
             stmt.setNull(index, this)
-        else
+        } else {
             stmt[index] = value
+        }
     }
 
     /**

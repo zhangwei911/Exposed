@@ -66,7 +66,7 @@ class MathFunctionTests : FunctionsTestBase() {
         withTable { testDb ->
             assertExpressionEqual(BigDecimal(100), PowerFunction(intLiteral(10), intLiteral(2)))
             assertExpressionEqual(BigDecimal(100), PowerFunction(intLiteral(10), doubleLiteral(2.0)))
-            if (testDb != TestDB.SQLSERVER) {
+            if (testDb != TestDB.Jdbc.SQLSERVER) {
                 assertExpressionEqual(BigDecimal("102.01"), PowerFunction(doubleLiteral(10.1), intLiteral(2)))
                 assertExpressionEqual(BigDecimal("102.01"), PowerFunction(decimalLiteral(BigDecimal("10.1")), intLiteral(2)))
                 assertExpressionEqual(BigDecimal("102.01"), PowerFunction(doubleLiteral(10.1), doubleLiteral(2.0)))
@@ -105,16 +105,16 @@ class MathFunctionTests : FunctionsTestBase() {
             assertExpressionEqual(BigDecimal("11.2"), SqrtFunction(decimalLiteral(BigDecimal("125.44"))))
 
             when (testDb) {
-                TestDB.MYSQL, TestDB.MARIADB -> {
+                TestDB.Jdbc.MYSQL, TestDB.Jdbc.MARIADB -> {
                     assertExpressionEqual(null, SqrtFunction(intLiteral(-100)))
                 }
-                TestDB.SQLSERVER -> {
+                TestDB.Jdbc.SQLSERVER -> {
                     // SQLServer fails with SQLServerException to execute sqrt with negative value
                     expectException<SQLException> {
                         assertExpressionEqual(null, SqrtFunction(intLiteral(-100)))
                     }
                 }
-                TestDB.SQLITE, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.ORACLE -> {
+                TestDB.Jdbc.SQLITE, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Jdbc.ORACLE -> {
                     // SQLite, PSQL, Oracle fail to execute sqrt with negative value
                     expectException<ExposedSQLException> {
                         assertExpressionEqual(null, SqrtFunction(intLiteral(-100)))
