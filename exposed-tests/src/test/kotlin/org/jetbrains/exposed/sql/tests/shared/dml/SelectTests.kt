@@ -3,6 +3,7 @@ package org.jetbrains.exposed.sql.tests.shared.dml
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
+import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.junit.Test
 import kotlin.test.assertNull
@@ -96,6 +97,64 @@ class SelectTests : DatabaseTestsBase() {
     }
 
     @Test
+    fun testInList03() {
+        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER)) { _, users, _ ->
+            val r = users.select {
+                users.id to users.name inList listOf("andrey" to "Andrey", "alex" to "Alex")
+            }.orderBy(users.name).toList()
+
+            assertEquals(2, r.size)
+            assertEquals("Alex", r[0][users.name])
+            assertEquals("Andrey", r[1][users.name])
+        }
+    }
+
+    @Test
+    fun testInList04() {
+        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER, TestDB.ORACLE)) { _, users, _ ->
+            val r = users.select {
+                users.id to users.name inList listOf("andrey" to "Andrey")
+            }.toList()
+
+            assertEquals(1, r.size)
+            assertEquals("Andrey", r[0][users.name])
+        }
+    }
+
+    @Test
+    fun testInList05() {
+        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER, TestDB.ORACLE)) { _, users, _ ->
+            val r = users.select {
+                users.id to users.name inList emptyList()
+            }.toList()
+
+            assertEquals(0, r.size)
+        }
+    }
+
+    @Test
+    fun testInList06() {
+        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER, TestDB.ORACLE)) { _, users, _ ->
+            val r = users.select {
+                users.id to users.name notInList emptyList()
+            }.toList()
+
+            assertEquals(users.selectAll().count().toInt(), r.size)
+        }
+    }
+
+    @Test
+    fun testInList07() {
+        withCitiesAndUsers(listOf(TestDB.SQLITE, TestDB.SQLSERVER, TestDB.ORACLE)) { _, users, _ ->
+            val r = users.select {
+                Triple(users.id, users.name, users.cityId) notInList listOf(Triple("alex", "Alex", null))
+            }.toList()
+
+            assertEquals(users.selectAll().count().toInt() - 1, r.size)
+        }
+    }
+
+    @Test
     fun testInSubQuery01() {
         withCitiesAndUsers { cities, _, _ ->
             val r = cities.select { cities.id inSubQuery cities.slice(cities.id).select { cities.id eq 2 } }
@@ -177,6 +236,23 @@ class SelectTests : DatabaseTestsBase() {
             val secondEntries = secondTable.select { secondTable.firstOpt eq firstId.value }.toList()
 
             assertEquals(1, secondEntries.size)
+        }
+    }
+
+    @Test
+    fun `test that column length check is not affects select queries`() {
+        val stringTable = object : IntIdTable("StringTable") {
+            val name = varchar("name", 10)
+        }
+
+        withTables(stringTable) {
+            stringTable.insert {
+                it[name] = "TestName"
+            }
+            assertEquals(1, stringTable.select { stringTable.name eq "TestName" }.count())
+
+            val veryLongString = "1".repeat(255)
+            assertEquals(0, stringTable.select { stringTable.name eq veryLongString }.count())
         }
     }
 }

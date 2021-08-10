@@ -29,7 +29,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             override val primaryKey = PrimaryKey(id)
         }
 
-        withTables(excludeSettings = listOf(TestDB.Jdbc.H2_MYSQL), tables = *arrayOf(TestTable)) {
+        withTables(excludeSettings = listOf(TestDB.H2_MYSQL), tables = arrayOf(TestTable)) {
             SchemaUtils.createMissingTablesAndColumns(TestTable)
             assertTrue(TestTable.exists())
             SchemaUtils.drop(TestTable)
@@ -91,6 +91,40 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             assertFailAndRollback("Can't insert to nullable column") {
                 t2.insert { it[foo] = null }
             }
+            SchemaUtils.drop(t1)
+        }
+    }
+
+    @Test
+    fun testCreateMissingTablesAndColumnsChangeAutoincrement() {
+        val t1 = object : Table("foo") {
+            val id = integer("idcol").autoIncrement()
+            val foo = varchar("foo", 50)
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        val t2 = object : Table("foo") {
+            val id = integer("idcol")
+            val foo = varchar("foo", 50)
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        withDb(db = listOf(TestDB.H2)) {
+            SchemaUtils.createMissingTablesAndColumns(t1)
+            t1.insert { it[foo] = "ABC" }
+
+            SchemaUtils.createMissingTablesAndColumns(t2)
+            assertFailAndRollback("Can't insert without primaryKey value") {
+                t2.insert { it[foo] = "ABC" }
+            }
+
+            t2.insert {
+                it[id] = 3
+                it[foo] = "ABC"
+            }
+
             SchemaUtils.drop(t1)
         }
     }
@@ -208,6 +242,20 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
 
             assertTrue(T1.exists())
             assertTrue(T2.exists())
+        }
+    }
+
+    object ExplicitTable : IntIdTable() {
+        val playerId = integer("player_id").references(PlayerTable.id, fkName = "Explicit_FK_NAME")
+    }
+    object NonExplicitTable : IntIdTable() {
+        val playerId = integer("player_id").references(PlayerTable.id)
+    }
+
+    @Test fun explicitFkNameIsExplicit() {
+        withTables(ExplicitTable, NonExplicitTable) {
+            assertEquals("Explicit_FK_NAME", ExplicitTable.playerId.foreignKey!!.customFkName)
+            assertEquals(null, NonExplicitTable.playerId.foreignKey!!.customFkName)
         }
     }
 

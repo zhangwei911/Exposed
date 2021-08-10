@@ -13,6 +13,7 @@ import org.jetbrains.exposed.sql.tests.shared.*
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.junit.Test
 import java.math.BigDecimal
+import java.util.*
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -124,11 +125,20 @@ class InsertTests : DatabaseTestsBase() {
         val insertIgnoreSupportedDB = TestDB.values().toList() -
             listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
         withTables(insertIgnoreSupportedDB, idTable) {
-            val id = idTable.insertIgnore {
+            val insertedStatement = idTable.insertIgnore {
                 it[idTable.id] = EntityID(1, idTable)
                 it[idTable.name] = "1"
-            } get idTable.id
-            assertEquals(1, id.value)
+            }
+            assertEquals(1, insertedStatement[idTable.id].value)
+            assertEquals(1, insertedStatement.insertedCount)
+
+            val notInsertedStatement = idTable.insertIgnore {
+                it[idTable.id] = EntityID(1, idTable)
+                it[idTable.name] = "2"
+            }
+
+            assertEquals(1, notInsertedStatement[idTable.id].value)
+            assertEquals(0, notInsertedStatement.insertedCount)
         }
     }
 
@@ -153,6 +163,32 @@ class InsertTests : DatabaseTestsBase() {
 
             assertEquals(userNamesWithCityIds.size, generatedIds.size)
             assertEquals(userNamesWithCityIds.size.toLong(), users.select { users.name inList userNamesWithCityIds.map { it.first } }.count())
+        }
+    }
+
+    @Test
+    fun `batchInserting using a sequence should work`() {
+        val Cities = DMLTestsData.Cities
+        withTables(Cities) {
+            val names = List(25) { UUID.randomUUID().toString() }.asSequence()
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
+
+            val batchesSize = Cities.selectAll().count()
+
+            kotlin.test.assertEquals(25, batchesSize)
+        }
+    }
+
+    @Test
+    fun `batchInserting using empty sequence should work`() {
+        val Cities = DMLTestsData.Cities
+        withTables(Cities) {
+            val names = emptySequence<String>()
+            Cities.batchInsert(names) { name -> this[Cities.name] = name }
+
+            val batchesSize = Cities.selectAll().count()
+
+            assertEquals(0, batchesSize)
         }
     }
 
@@ -323,7 +359,7 @@ class InsertTests : DatabaseTestsBase() {
         }
         val emojis = "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC67\uD83C\uDFFF\u200D\uD83D\uDC66\uD83C\uDFFF"
 
-        withTables(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Rdbc.H2, TestDB.Jdbc.SQLSERVER), table) {
+        withTables(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Rdbc.H2, TestDB.Jdbc.SQLSERVER, TestDB.Jdbc.ORACLE), table) {
             val isOldMySQL = currentDialectTest is MysqlDialect && db.isVersionCovers(BigDecimal("5.5"))
             if (isOldMySQL) {
                 exec("ALTER TABLE ${table.nameInDatabaseCase()} DEFAULT CHARSET utf8mb4, MODIFY emoji VARCHAR(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;")
@@ -347,6 +383,20 @@ class InsertTests : DatabaseTestsBase() {
                 table.insert {
                     it[table.emoji] = emojis
                 }
+            }
+        }
+    }
+
+    @Test(expected = java.lang.IllegalArgumentException::class)
+    fun `test that column length checked on insert`() {
+        val stringTable = object : IntIdTable("StringTable") {
+            val name = varchar("name", 10)
+        }
+
+        withTables(stringTable) {
+            val veryLongString = "1".repeat(255)
+            stringTable.insert {
+                it[name] = veryLongString
             }
         }
     }

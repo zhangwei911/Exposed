@@ -3,6 +3,8 @@ package org.jetbrains.exposed.sql
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedDatabaseMetadata
 import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
+import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
+import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
@@ -23,8 +25,9 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
             } finally {
                 connection.close()
             }
-        } else
+        } else {
             transaction.connection.metadata(body)
+        }
     }
 
     val url: String by lazy { metadata { url } }
@@ -33,7 +36,7 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
     }
 
     val dialect by lazy {
-        dialects[vendor.toLowerCase()]?.invoke() ?: error("No dialect registered for $name. URL=$url")
+        dialects[vendor.lowercase()]?.invoke() ?: error("No dialect registered for $name. URL=$url")
     }
 
     val version by lazy { metadata { version } }
