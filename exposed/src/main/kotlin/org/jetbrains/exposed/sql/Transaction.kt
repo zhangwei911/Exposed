@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql
 
+import org.intellij.lang.annotations.Language
 import org.jetbrains.exposed.dao.Entity
 import org.jetbrains.exposed.dao.EntityCache
 import org.jetbrains.exposed.dao.EntityChange
@@ -89,9 +90,9 @@ open class Transaction(private val transactionImpl: TransactionInterface): UserD
 
     private fun describeStatement(delta: Long, stmt: String): String = "[${delta}ms] ${stmt.take(1024)}\n\n"
 
-    fun exec(stmt: String) = exec(stmt, { })
+    fun exec(@Language("sql") stmt: String) = exec(stmt, { })
 
-    fun <T:Any> exec(stmt: String, transform: (ResultSet) -> T): T? {
+    fun <T:Any> exec(@Language("sql") stmt: String, transform: (ResultSet) -> T): T? {
         if (stmt.isEmpty()) return null
 
         val type = StatementType.values().find {
@@ -212,10 +213,11 @@ open class Transaction(private val transactionImpl: TransactionInterface): UserD
     }.toString()
 
     internal fun fullIdentity(column: Column<*>, queryBuilder: QueryBuilder) = queryBuilder {
-        if (column.table is Alias<*>)
+        if (column.table is Alias<*>) {
             append(db.identifierManager.quoteIfNecessary(column.table.alias))
-        else
+        } else {
             append(db.identifierManager.quoteIfNecessary(column.table.tableName.inProperCase()))
+        }
         append('.')
         append(identity(column))
     }
