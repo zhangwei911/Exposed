@@ -1,6 +1,7 @@
 import org.jetbrains.exposed.gradle.setupDialectTest
 import org.jetbrains.exposed.gradle.setupTestDriverDependencies
 import org.jetbrains.exposed.gradle.Versions
+import org.jetbrains.exposed.gradle.setupTestTask
 
 plugins {
     kotlin("jvm") apply true
@@ -11,6 +12,7 @@ repositories {
 }
 
 val dialect: String by project
+val testTimezone: String? by project
 
 dependencies {
     api(project(":exposed-core"))
@@ -27,5 +29,7 @@ dependencies {
         testImplementation(group, artifactId, version)
     }
 }
+
+tasks.setupTestTask(testTimezone)
 
 setupDialectTest(dialect)

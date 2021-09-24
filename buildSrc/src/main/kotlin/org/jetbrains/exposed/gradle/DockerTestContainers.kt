@@ -1,10 +1,29 @@
 package org.jetbrains.exposed.gradle
 
 import org.gradle.api.Project
+import org.gradle.api.tasks.TaskContainer
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.kotlin.dsl.create
 import java.io.File
 import java.time.Duration
+import java.util.*
+
+fun TaskContainer.setupTestTask(testTimezone: String?) {
+    withType(Test::class.java) {
+        jvmArgs = listOf("-XX:MaxPermSize=256m")
+        testLogging {
+            events.addAll(listOf(TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.SKIPPED))
+            showStandardStreams = true
+            exceptionFormat = TestExceptionFormat.FULL
+        }
+        if (testTimezone != null) {
+            TimeZone.getTimeZone(testTimezone) // Check that it can be parsed
+            systemProperties["exposed.test.timezone"] = testTimezone
+        }
+    }
+}
 
 fun Project.setupDialectTest(dialect: String) {
     if (dialect != "none") {

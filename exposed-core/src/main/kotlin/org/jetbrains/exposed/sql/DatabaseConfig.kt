@@ -1,5 +1,7 @@
 package org.jetbrains.exposed.sql
 
+import java.util.*
+
 const val DEFAULT_REPETITION_ATTEMPTS = 3
 
 @Suppress("LongParameterList")
@@ -12,6 +14,7 @@ class DatabaseConfig private constructor(
     val warnLongQueriesDuration: Long?,
     val maxEntitiesToStoreInCachePerEntity: Int,
     val keepLoadedReferencesOutOfTransaction: Boolean,
+    val defaultTimeZone: TimeZone
 ) {
 
     class Builder(
@@ -57,7 +60,9 @@ class DatabaseConfig private constructor(
          * within the entity that will allow to access them outside the transaction.
          * Useful when [eager loading](https://github.com/JetBrains/Exposed/wiki/DAO#eager-loading) is used
          */
-        var keepLoadedReferencesOutOfTransaction: Boolean = false
+        var keepLoadedReferencesOutOfTransaction: Boolean = false,
+
+        var defaultTimeZone: TimeZone = TimeZone.getDefault()
     )
 
     companion object {
@@ -71,7 +76,8 @@ class DatabaseConfig private constructor(
                 defaultRepetitionAttempts = builder.defaultRepetitionAttempts,
                 warnLongQueriesDuration = builder.warnLongQueriesDuration,
                 maxEntitiesToStoreInCachePerEntity = builder.maxEntitiesToStoreInCachePerEntity,
-                keepLoadedReferencesOutOfTransaction = builder.keepLoadedReferencesOutOfTransaction
+                keepLoadedReferencesOutOfTransaction = builder.keepLoadedReferencesOutOfTransaction,
+                defaultTimeZone = builder.defaultTimeZone
             )
         }
     }

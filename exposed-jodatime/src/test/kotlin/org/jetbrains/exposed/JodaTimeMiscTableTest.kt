@@ -25,10 +25,10 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
     @Test
     fun testInsert01() {
         val tbl = Misc
-        val date = today
-        val time = DateTime.now()
-
         withTables(tbl) {
+            val date = today
+            val time = DateTime.now(testTimeZone)
+
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -56,10 +56,10 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
     @Test
     fun testInsert02() {
         val tbl = Misc
-        val date = today
-        val time = DateTime.now()
 
         withTables(tbl) {
+            val date = today
+            val time = DateTime.now(testTimeZone)
             tbl.insert {
                 it[by] = 13
                 it[byn] = null
@@ -96,10 +96,10 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
     @Test
     fun testInsert03() {
         val tbl = Misc
-        val date = today
-        val time = DateTime.now()
 
         withTables(tbl) {
+            val date = today
+            val time = DateTime.now(testTimeZone)
             tbl.insert {
                 it[by] = 13
                 it[byn] = 13
@@ -139,9 +139,10 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
         val shortStringThatNeedsEscaping = "A'br"
         val stringThatNeedsEscaping = "A'braham Barakhyahu"
         val tbl = Misc
-        val date = today
-        val time = DateTime.now()
         withTables(tbl) {
+            val date = today
+            val time = DateTime.now(testTimeZone)
+
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -168,10 +169,11 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
     @Test
     fun testInsertGet01() {
         val tbl = Misc
-        val date = today
-        val time = DateTime.now()
 
         withTables(tbl) {
+            val date = today
+            val time = DateTime.now(testTimeZone)
+
             val row = tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -200,7 +202,7 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
         val tbl = Misc
         withTables(tbl) {
             val date = today
-            val time = DateTime.now()
+            val time = DateTime.now(testTimeZone)
             val sTest = "test"
             val dec = BigDecimal("239.42")
             tbl.insert {
@@ -243,7 +245,7 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
         val tbl = Misc
         withTables(tbl) {
             val date = today
-            val time = DateTime.now()
+            val time = DateTime.now(testTimeZone)
             val sTest = "test"
             val eOne = MiscTable.E.ONE
             val dec = BigDecimal("239.42")
@@ -294,7 +296,7 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
         val tbl = Misc
         withTables(tbl) {
             val date = today
-            val time = DateTime.now()
+            val time = DateTime.now(testTimeZone)
             val eOne = MiscTable.E.ONE
             val sTest = "test"
             val dec = BigDecimal("239.42")
@@ -344,11 +346,12 @@ class JodaTimeMiscTableTest : JodaTimeBaseTest() {
     @Test
     fun testUpdate03() {
         val tbl = Misc
-        val date = today
-        val time = DateTime.now()
         val eOne = MiscTable.E.ONE
         val dec = BigDecimal("239.42")
         withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.MARIADB), tables = arrayOf(tbl)) {
+            val date = today
+            val time = DateTime.now(testTimeZone)
+
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10

@@ -93,7 +93,15 @@ enum class TestDB(
     );
 
     fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
-        val config = DatabaseConfig(configure)
+        val config = DatabaseConfig {
+            System.getProperty("exposed.test.timezone")?.takeIf { it.isNotBlank() }?.let { timeZone ->
+                defaultTimeZone = TimeZone.getTimeZone(timeZone)
+                if (defaultTimeZone != TimeZone.getDefault()) {
+                    exposedLogger.info("Non-default timezone: $timeZone will be used in tests instead of system ${TimeZone.getDefault().id}")
+                }
+            }
+            configure()
+        }
         return Database.connect(connection(), databaseConfig = config, user = user, password = pass, driver = driver)
     }
 
@@ -123,7 +131,7 @@ private val postgresSQLProcess by lazy {
 internal class SpecifiedMySQLContainer(val image: String) : MySQLContainer<SpecifiedMySQLContainer>(image)
 
 private val mySQLProcess by lazy {
-    SpecifiedMySQLContainer(image = "mysql:5")
+    SpecifiedMySQLContainer(image = "mysql:5.6")
         .withDatabaseName("testdb")
         .withEnv("MYSQL_ROOT_PASSWORD", "test")
         .withExposedPorts().apply {
@@ -136,10 +144,6 @@ private fun runTestContainersMySQL(): Boolean =
 
 @Suppress("UnnecessaryAbstractClass")
 abstract class DatabaseTestsBase {
-    init {
-        TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
-    }
-
     fun withDb(dbSettings: TestDB, statement: Transaction.(TestDB) -> Unit) {
         if (dbSettings !in TestDB.enabledInTests()) {
             exposedLogger.warn("$dbSettings is not enabled for being used in tests", RuntimeException())

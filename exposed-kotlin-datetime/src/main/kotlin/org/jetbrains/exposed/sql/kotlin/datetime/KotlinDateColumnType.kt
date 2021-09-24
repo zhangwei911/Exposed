@@ -6,6 +6,8 @@ import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.IDateColumnType
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.transactions.transactionScope
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
@@ -18,8 +20,8 @@ import kotlin.time.ExperimentalTime
 
 private const val MILLIS_IN_SECOND = 1000
 
-private val DEFAULT_TIME_ZONE by lazy {
-    TimeZone.currentSystemDefault()
+private val DEFAULT_TIME_ZONE by transactionScope {
+    TimeZone.of(TransactionManager.current().db.config.defaultTimeZone.id)
 }
 
 private val DEFAULT_DATE_STRING_FORMATTER by lazy {

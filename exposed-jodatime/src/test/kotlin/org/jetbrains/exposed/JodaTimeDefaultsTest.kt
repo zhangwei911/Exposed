@@ -24,6 +24,7 @@ import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.junit.Test
+import kotlin.properties.Delegates
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 
@@ -56,7 +57,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
                 DBDefault.new { field = "1" },
                 DBDefault.new {
                     field = "2"
-                    t1 = DateTime.now().minusDays(5)
+                    t1 = DateTime.now(testTimeZone).minusDays(5)
                 }
             )
             flushCache()
@@ -75,7 +76,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val created = listOf(
                 DBDefault.new {
                     field = "2"
-                    t1 = DateTime.now().minusDays(5)
+                    t1 = DateTime.now(testTimeZone).minusDays(5)
                 },
                 DBDefault.new { field = "1" }
             )
@@ -148,7 +149,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
                 }
             }
         }
-        val dtConstValue = DateTime.parse("2010-01-01").withZone(DateTimeZone.UTC)
+        val dtConstValue = DateTime.parse("2010-01-01")
         val dtLiteral = dateLiteral(dtConstValue)
         val TestTable = object : IntIdTable("t") {
             val s = varchar("s", 100).default("test")
@@ -240,9 +241,10 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val defaultDateTime = datetime("defaultDateTime").defaultExpression(CurrentDateTime())
         }
 
-        val nonDefaultDate = DateTime.parse("2000-01-01")
+        var nonDefaultDate: DateTime by Delegates.notNull()
 
         withTables(foo) {
+            nonDefaultDate = DateTime.parse("2000-01-01").withZone(testTimeZone)
             val id = foo.insertAndGetId {
                 it[foo.name] = "bar"
                 it[foo.defaultDateTime] = nonDefaultDate
@@ -270,21 +272,28 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
         }
 
         withTables(TestDate) {
+            fun currentDateTime() = when (it) {
+                TestDB.MYSQL -> DateTime(testTimeZone.convertLocalToUTC(DateTime.now().millis, false))
+                TestDB.SQLITE -> DateTime.now(DateTimeZone.UTC)
+                else -> {
+                    DateTime.now(testTimeZone)
+                }
+            }
+
             val duration: Long = 2_000
 
             val before = currentDateTime()
             Thread.sleep(duration)
-            for (i in 0..1) {
+            repeat(2) {
                 TestDate.insertAndWait(duration)
             }
             val middle = currentDateTime()
             Thread.sleep(duration)
-            for (i in 0..1) {
+            repeat(2) {
                 TestDate.insertAndWait(duration)
             }
             val after = currentDateTime()
-
-            assertEquals(0, TestDate.select { TestDate.time less before }.count())
+            assertEquals(0,  TestDate.select { TestDate.time less before }.count())
             assertEquals(4, TestDate.select { TestDate.time greater before }.count())
             assertEquals(2, TestDate.select { TestDate.time less middle }.count())
             assertEquals(2, TestDate.select { TestDate.time greater middle }.count())
@@ -314,7 +323,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
 
                 val result = TestDate.slice(year, month, day, hour, minute).selectAll().single()
 
-                val now = DateTime.now()
+                val now = DateTime.now(DateTimeZone.UTC)
                 assertEquals(now.year, result[year])
                 assertEquals(now.monthOfYear, result[month])
                 assertEquals(now.dayOfMonth, result[day])
@@ -333,9 +342,10 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val dateTime = datetime("date-time")
         }
 
-        val date = DateTime.now()
+        var date: DateTime by Delegates.notNull()
         var list1: ResultRow? = null
         withTables(TestData) {
+            date = DateTime.now(testTimeZone)
             TestData.insert {
                 it[name] = "test1"
                 it[dateTime] = date
@@ -355,5 +365,3 @@ fun Table.insertAndWait(duration: Long) {
     TransactionManager.current().commit()
     Thread.sleep(duration)
 }
-
-fun currentDateTime(): DateTime = DateTime.now().withZone(DateTimeZone.getDefault())

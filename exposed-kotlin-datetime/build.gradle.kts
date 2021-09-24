@@ -3,6 +3,7 @@ import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.exposed.gradle.setupDialectTest
 import org.jetbrains.exposed.gradle.setupTestDriverDependencies
 import org.jetbrains.exposed.gradle.Versions
+import org.jetbrains.exposed.gradle.setupTestTask
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile
 
 plugins {
@@ -14,6 +15,7 @@ repositories {
 }
 
 val dialect: String by project
+val testTimezone: String? by project
 
 dependencies {
     api(project(":exposed-core"))
@@ -47,5 +49,7 @@ tasks.withType(Test::class.java) {
         exceptionFormat = TestExceptionFormat.FULL
     }
 }
+
+tasks.setupTestTask(testTimezone)
 
 setupDialectTest(dialect)

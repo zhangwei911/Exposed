@@ -42,22 +42,10 @@ class ResultRow(
 
     fun <T> hasValue(c: Expression<T>): Boolean = fieldIndex[c]?.let { data[it] != NotInitializedValue } ?: false
 
-    fun <T> getOrNull(c: Expression<T>): T? = if (hasValue(c)) rawToColumnValue(getRaw(c), c) else null
+    fun <T> getOrNull(c: Expression<T>): T? = if (hasValue(c)) get(c) else null
 
     @Deprecated("Replaced with getOrNull to be more kotlinish", replaceWith = ReplaceWith("getOrNull(c)"))
     fun <T> tryGet(c: Expression<T>): T? = getOrNull(c)
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> rawToColumnValue(raw: T?, c: Expression<T>): T {
-        return when {
-            raw == null -> null
-            raw == NotInitializedValue -> error("$c is not initialized yet")
-            c is ExpressionAlias<T> && c.delegate is ExpressionWithColumnType<T> -> c.delegate.columnType.valueFromDB(raw)
-            c is ExpressionWithColumnType<T> -> c.columnType.valueFromDB(raw)
-            c is Op.OpBoolean -> BooleanColumnType.INSTANCE.valueFromDB(raw)
-            else -> raw
-        } as T
-    }
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> getRaw(c: Expression<T>): T? {
@@ -82,6 +70,17 @@ class ResultRow(
     internal object NotInitializedValue
 
     companion object {
+        @Suppress("UNCHECKED_CAST")
+        private fun <T> rawToColumnValue(raw: T?, c: Expression<T>): T {
+            return when {
+                raw == null -> null
+                raw == NotInitializedValue -> error("$c is not initialized yet")
+                c is ExpressionAlias<T> && c.delegate is ExpressionWithColumnType<T> -> c.delegate.columnType.valueFromDB(raw)
+                c is ExpressionWithColumnType<T> -> c.columnType.valueFromDB(raw)
+                c is Op.OpBoolean -> BooleanColumnType.INSTANCE.valueFromDB(raw)
+                else -> raw
+            } as T
+        }
 
         @Deprecated(level = DeprecationLevel.ERROR, message = "Consider to use [create] with map param instead")
         fun create(rs: ResultSet, fields: List<Expression<*>>): ResultRow {
@@ -91,7 +90,12 @@ class ResultRow(
         fun create(rs: ResultSet, fieldsIndex: Map<Expression<*>, Int>): ResultRow {
             return ResultRow(fieldsIndex).apply {
                 fieldsIndex.forEach { (field, index) ->
-                    val value = (field as? Column<*>)?.columnType?.readObject(rs, index + 1) ?: rs.getObject(index + 1)
+                    val value = when(val columnType = (field as? ExpressionWithColumnType<*>)?.columnType) {
+                        null -> rs.getObject(index + 1)
+                        // Eager converting due to db related timezone
+                        is IDateColumnType -> rawToColumnValue(columnType.readObject(rs, index + 1), field as Expression<Any?>)
+                        else -> columnType.readObject(rs, index + 1)
+                    }
                     data[index] = value
                 }
             }

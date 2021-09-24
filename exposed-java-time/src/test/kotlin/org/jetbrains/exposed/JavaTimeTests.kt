@@ -60,7 +60,7 @@ open class JavaTimeBaseTest : DatabaseTestsBase() {
 
                 val result = TestDate.slice(year, month, day, hour, minute).selectAll().single()
 
-                val now = LocalDateTime.now()
+                val now = LocalDateTime.now(ZoneId.of("UTC"))
                 assertEquals(now.year, result[year])
                 assertEquals(now.monthValue, result[month])
                 assertEquals(now.dayOfMonth, result[day])

@@ -4,12 +4,15 @@ import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.IDateColumnType
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.transactions.transactionScope
 import org.jetbrains.exposed.sql.vendors.MariaDBDialect
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
+import org.joda.time.LocalDateTime
 import org.joda.time.format.DateTimeFormat
 import org.joda.time.format.DateTimeFormatter
 import org.joda.time.format.ISODateTimeFormat
@@ -21,13 +24,18 @@ private val DEFAULT_DATE_TIME_STRING_FORMATTER = DateTimeFormat.forPattern("YYYY
 private val SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER = DateTimeFormat.forPattern("YYYY-MM-dd HH:mm:ss.SSS")
 private val SQLITE_DATE_STRING_FORMATTER = ISODateTimeFormat.yearMonthDay()
 
+private val timeZone by transactionScope {
+    DateTimeZone.forTimeZone(TransactionManager.current().db.config.defaultTimeZone)
+}
+
 private fun formatterForDateTimeString(date: String) = dateTimeWithFractionFormat(date.substringAfterLast('.', "").length)
 private fun dateTimeWithFractionFormat(fraction: Int): DateTimeFormatter {
     val baseFormat = "YYYY-MM-dd HH:mm:ss"
-    val newFormat = if (fraction in 1..9)
+    val newFormat = if (fraction in 1..9) {
         (1..fraction).joinToString(prefix = "$baseFormat.", separator = "") { "S" }
-    else
+    } else {
         baseFormat
+    }
     return DateTimeFormat.forPattern(newFormat)
 }
 
@@ -40,33 +48,35 @@ class DateColumnType(val time: Boolean) : ColumnType(), IDateColumnType {
 
         val dateTime = when (value) {
             is DateTime -> value
-            is java.sql.Date -> DateTime(value.time)
-            is java.sql.Timestamp -> DateTime(value.time)
+            is java.sql.Date -> DateTime(value.time, timeZone)
+            is java.sql.Timestamp -> DateTime(value.time, timeZone)
             else -> error("Unexpected value: $value of ${value::class.qualifiedName}")
         }
 
-        return if (time)
-            "'${DEFAULT_DATE_TIME_STRING_FORMATTER.print(dateTime.toDateTime(DateTimeZone.getDefault()))}'"
-        else
-            "'${DEFAULT_DATE_STRING_FORMATTER.print(dateTime)}'"
+        return if (time) {
+            "'${DEFAULT_DATE_TIME_STRING_FORMATTER.print(dateTime.toDateTime(timeZone))}'"
+        } else {
+            "'${DEFAULT_DATE_STRING_FORMATTER.print(dateTime.toDateTime(timeZone))}'"
+        }
     }
 
     override fun valueFromDB(value: Any): Any = when (value) {
         is DateTime -> value
-        is java.sql.Date -> DateTime(value.time)
-        is java.sql.Timestamp -> DateTime(value.time)
-        is Int -> DateTime(value.toLong())
-        is Long -> DateTime(value)
+        is java.sql.Date -> DateTime(value.time, timeZone)
+        is java.sql.Timestamp -> DateTime(value.time, timeZone)
+        is Int -> DateTime(value.toLong(), timeZone)
+        is Long -> DateTime(value, timeZone)
         is String -> when {
             time -> DateTime.parse(value, formatterForDateTimeString(value))
             currentDialect is SQLiteDialect -> SQLITE_DATE_STRING_FORMATTER.parseDateTime(value)
             else -> DEFAULT_DATE_STRING_FORMATTER.parseDateTime(value)
-        }
+        }.withZone(timeZone)
         else -> {
-            if (localDateTimeClass == value.javaClass)
-                DateTime.parse(value.toString())
-            else
+            if (localDateTimeClass == value.javaClass) {
+                LocalDateTime.parse(value.toString()).toDateTime(timeZone)
+            } else {
                 valueFromDB(value.toString())
+            }
         }
     }
 

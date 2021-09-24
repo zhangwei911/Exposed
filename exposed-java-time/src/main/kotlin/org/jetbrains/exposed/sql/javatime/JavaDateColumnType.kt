@@ -4,6 +4,9 @@ import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
 import org.jetbrains.exposed.sql.IDateColumnType
 import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.transactions.transactionScope
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
@@ -12,29 +15,25 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-internal val DEFAULT_DATE_STRING_FORMATTER by lazy {
-    DateTimeFormatter.ISO_LOCAL_DATE.withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
+internal val DEFAULT_DATE_STRING_FORMATTER by transactionScope {
+    DateTimeFormatter.ISO_LOCAL_DATE.withLocale(Locale.ROOT).withZoneId(this)
 }
-internal val DEFAULT_DATE_TIME_STRING_FORMATTER by lazy {
-    DateTimeFormatter.ISO_LOCAL_DATE_TIME.withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
+internal val DEFAULT_DATE_TIME_STRING_FORMATTER by transactionScope {
+    DateTimeFormatter.ISO_LOCAL_DATE_TIME.withLocale(Locale.ROOT).withZoneId(this)
 }
-internal val SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER by lazy {
-    DateTimeFormatter.ofPattern(
-        "yyyy-MM-dd HH:mm:ss.SSS",
-        Locale.ROOT
-    ).withZone(ZoneId.systemDefault())
+internal val SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER by transactionScope {
+    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.ROOT).withZoneId(this)
 }
 
-internal val ORACLE_TIME_STRING_FORMATTER by lazy {
-    DateTimeFormatter.ofPattern(
-        "1900-01-01 HH:mm:ss",
-        Locale.ROOT
-    ).withZone(ZoneOffset.UTC)
+internal val ORACLE_TIME_STRING_FORMATTER by transactionScope {
+    DateTimeFormatter.ofPattern("1900-01-01 HH:mm:ss", Locale.ROOT).withZoneId(this)
 }
 
-internal val DEFAULT_TIME_STRING_FORMATTER by lazy {
-    DateTimeFormatter.ISO_LOCAL_TIME.withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
+internal val DEFAULT_TIME_STRING_FORMATTER by transactionScope {
+    DateTimeFormatter.ISO_LOCAL_TIME.withLocale(Locale.ROOT).withZoneId(this)
 }
+
+internal fun DateTimeFormatter.withZoneId(transaction: Transaction)  = withZone(transaction.db.config.defaultTimeZone.toZoneId())
 
 internal fun formatterForDateString(date: String) = dateTimeWithFractionFormat(date.substringAfterLast('.', "").length)
 internal fun dateTimeWithFractionFormat(fraction: Int): DateTimeFormatter {

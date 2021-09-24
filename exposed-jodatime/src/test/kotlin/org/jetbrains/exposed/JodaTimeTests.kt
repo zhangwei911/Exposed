@@ -6,25 +6,26 @@ import org.jetbrains.exposed.sql.jodatime.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
+import org.jetbrains.exposed.sql.transactions.transactionScope
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.joda.time.DateTime
 import org.joda.time.DateTimeZone
 import org.junit.Test
 import kotlin.test.assertEquals
 
-open class JodaTimeBaseTest : DatabaseTestsBase() {
-    init {
-        DateTimeZone.setDefault(DateTimeZone.UTC)
-    }
+internal val testTimeZone by transactionScope {
+    DateTimeZone.forID(db.config.defaultTimeZone.id)
+}
 
+open class JodaTimeBaseTest : DatabaseTestsBase() {
     @Test
     fun jodaTimeFunctions() {
         withTables(CitiesTime) {
-            val now = DateTime.now()
+            val now = DateTime.now(testTimeZone)
 
             val cityID = CitiesTime.insertAndGetId {
                 it[name] = "St. Petersburg"
-                it[local_time] = now.toDateTime()
+                it[local_time] = now
             }
 
             val insertedYear = CitiesTime.slice(CitiesTime.local_time.year()).select { CitiesTime.id.eq(cityID) }.single()[CitiesTime.local_time.year()]
@@ -64,7 +65,7 @@ fun equalDateTime(d1: DateTime?, d2: DateTime?) = try {
     false
 }
 
-val today: DateTime = DateTime.now().withTimeAtStartOfDay()
+val today: DateTime = DateTime.now(testTimeZone).withTimeAtStartOfDay()
 
 object CitiesTime : IntIdTable("CitiesTime") {
     val name = varchar("name", 50) // Column<String>
