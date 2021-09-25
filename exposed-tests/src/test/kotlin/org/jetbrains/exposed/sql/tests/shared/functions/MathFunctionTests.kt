@@ -108,12 +108,6 @@ class MathFunctionTests : FunctionsTestBase() {
                 TestDB.MYSQL, TestDB.MARIADB -> {
                     assertExpressionEqual(null, SqrtFunction(intLiteral(-100)))
                 }
-                TestDB.SQLSERVER -> {
-                    // SQLServer fails with SQLServerException to execute sqrt with negative value
-                    expectException<SQLException> {
-                        assertExpressionEqual(null, SqrtFunction(intLiteral(-100)))
-                    }
-                }
                 TestDB.SQLITE, TestDB.POSTGRESQL, TestDB.POSTGRESQLNG, TestDB.ORACLE -> {
                     // SQLite, PSQL, Oracle fail to execute sqrt with negative value
                     expectException<ExposedSQLException> {
@@ -121,7 +115,7 @@ class MathFunctionTests : FunctionsTestBase() {
                     }
                 }
                 else -> {
-                    expectException<IllegalStateException> {
+                    expectException<SQLException> {
                         assertExpressionEqual(null, SqrtFunction(intLiteral(-100)))
                     }
                 }

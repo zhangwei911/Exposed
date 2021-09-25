@@ -131,7 +131,7 @@ private val postgresSQLProcess by lazy {
 internal class SpecifiedMySQLContainer(val image: String) : MySQLContainer<SpecifiedMySQLContainer>(image)
 
 private val mySQLProcess by lazy {
-    SpecifiedMySQLContainer(image = "mysql:5.6")
+    SpecifiedMySQLContainer(image = "mysql:5")
         .withDatabaseName("testdb")
         .withEnv("MYSQL_ROOT_PASSWORD", "test")
         .withExposedPorts().apply {

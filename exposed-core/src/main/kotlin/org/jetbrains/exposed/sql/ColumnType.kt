@@ -6,7 +6,9 @@ import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.statements.DefaultValueMarker
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
+import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
+import org.jetbrains.exposed.sql.vendors.currentDialectIfAvailable
 import java.io.InputStream
 import java.lang.IllegalArgumentException
 import java.math.BigDecimal
@@ -411,22 +413,29 @@ class DecimalColumnType(
     override fun sqlType(): String = "DECIMAL($precision, $scale)"
 
     override fun readObject(rs: ResultSet, index: Int): Any? {
-        return rs.getBigDecimal(index)
+        // Remove after merging https://github.com/xerial/sqlite-jdbc/pull/666
+        return if (currentDialectIfAvailable is SQLiteDialect) {
+            rs.getObject(index)
+        } else {
+            rs.getBigDecimal(index)
+        }
     }
 
     override fun valueFromDB(value: Any): BigDecimal = when (value) {
         is BigDecimal -> value
         is Double -> {
-            if (value.isNaN())
+            if (value.isNaN()) {
                 error("Unexpected value of type Double: NaN of ${value::class.qualifiedName}")
-            else
+            } else {
                 value.toBigDecimal()
+            }
         }
         is Float -> {
-            if (value.isNaN())
+            if (value.isNaN()) {
                 error("Unexpected value of type Float: NaN of ${value::class.qualifiedName}")
-            else
+            } else {
                 value.toBigDecimal()
+            }
         }
         is Long -> value.toBigDecimal()
         is Int -> value.toBigDecimal()
@@ -625,10 +634,7 @@ open class TextColumnType(collate: String? = null, val eagerLoading: Boolean = f
 
     override fun readObject(rs: ResultSet, index: Int): Any? {
         val value = super.readObject(rs, index)
-        return if (eagerLoading && value != null)
-            valueFromDB(value)
-        else
-            value
+        return if (eagerLoading && value != null) valueFromDB(value) else value
     }
 }
 

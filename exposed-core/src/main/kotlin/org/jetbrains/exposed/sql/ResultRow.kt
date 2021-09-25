@@ -90,10 +90,10 @@ class ResultRow(
         fun create(rs: ResultSet, fieldsIndex: Map<Expression<*>, Int>): ResultRow {
             return ResultRow(fieldsIndex).apply {
                 fieldsIndex.forEach { (field, index) ->
-                    val value = when(val columnType = (field as? ExpressionWithColumnType<*>)?.columnType) {
+                    val value = when (val columnType = (field as? ExpressionWithColumnType<*>)?.columnType) {
                         null -> rs.getObject(index + 1)
                         // Eager converting due to db related timezone
-                        is IDateColumnType -> rawToColumnValue(columnType.readObject(rs, index + 1), field as Expression<Any?>)
+                        is IDateColumnType -> rawToColumnValue(columnType.readObject(rs, index + 1), field as ExpressionWithColumnType<Any?>)
                         else -> columnType.readObject(rs, index + 1)
                     }
                     data[index] = value
