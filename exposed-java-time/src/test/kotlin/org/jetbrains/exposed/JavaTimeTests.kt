@@ -7,11 +7,17 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
+import org.jetbrains.exposed.sql.transactions.transactionScope
 import org.jetbrains.exposed.sql.vendors.*
 import org.junit.Test
 import java.time.*
 import java.time.temporal.Temporal
+import java.util.*
 import kotlin.test.assertEquals
+
+internal val testTimeZoneId by transactionScope {
+    TimeZone.getTimeZone(db.config.defaultTimeZone.id).toZoneId()
+}
 
 open class JavaTimeBaseTest : DatabaseTestsBase() {
 
@@ -99,7 +105,7 @@ fun <T : Temporal> assertEqualDateTime(d1: T?, d2: T?) {
             assertEquals(d1.toInstant(ZoneOffset.UTC).toEpochMilli() / 1000, d2.toInstant(ZoneOffset.UTC).toEpochMilli() / 1000, "Failed on ${currentDialectTest.name}")
         d1 is Instant && d2 is Instant && (currentDialectTest as? MysqlDialect)?.isFractionDateTimeSupported() == false ->
             assertEquals(d1.toEpochMilli() / 1000, d2.toEpochMilli() / 1000, "Failed on ${currentDialectTest.name}")
-        d1 is Instant && d2 is Instant -> assertEquals(d1.toEpochMilli(), d2.toEpochMilli(), "Failed on ${currentDialectTest.name}")
+        d1 is Instant && d2 is Instant -> assertEquals(d1, d2, "Failed on ${currentDialectTest.name}")
         d1 is LocalTime && d2 is LocalTime && d2.nano == 0 -> assertEquals<LocalTime>(d1.withNano(0), d2, "Failed on ${currentDialectTest.name}")
         d1 is LocalTime && d2 is LocalTime -> assertEquals<LocalTime>(d1, d2, "Failed on ${currentDialectTest.name}")
         d1 is LocalDateTime && d2 is LocalDateTime -> {
@@ -124,8 +130,6 @@ fun equalDateTime(d1: Temporal?, d2: Temporal?) = try {
 } catch (e: Exception) {
     false
 }
-
-val today: LocalDate = LocalDate.now()
 
 object CitiesTime : IntIdTable("CitiesTime") {
     val name = varchar("name", 50) // Column<String>

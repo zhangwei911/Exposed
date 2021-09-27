@@ -38,18 +38,20 @@ object Misc : MiscTable() {
     val drn = duration("drn").nullable()
 }
 
+private val today: LocalDate get() = LocalDate.now(testTimeZoneId)
+
 @Suppress("LargeClass")
 class MiscTableTest : DatabaseTestsBase() {
     @Test
     fun testInsert01() {
         val tbl = Misc
-        val date = today
-        val time = LocalTime.now()
-        val dateTime = LocalDateTime.now()
-        val timestamp = Instant.now()
-        val duration = Duration.ofMinutes(1)
-
         withTables(tbl) {
+            val date = today
+            val time = LocalTime.now()
+            val dateTime = LocalDateTime.now()
+            val timestamp = Instant.now()
+            val duration = Duration.ofMinutes(1)
+
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -80,13 +82,13 @@ class MiscTableTest : DatabaseTestsBase() {
     @Test
     fun testInsert02() {
         val tbl = Misc
-        val date = today
-        val time = LocalTime.now()
-        val dateTime = LocalDateTime.now()
-        val timestamp = Instant.now()
-        val duration = Duration.ofMinutes(1)
-
         withTables(tbl) {
+            val date = today
+            val time = LocalTime.now()
+            val dateTime = LocalDateTime.now()
+            val timestamp = Instant.now()
+            val duration = Duration.ofMinutes(1)
+
             tbl.insert {
                 it[by] = 13
                 it[byn] = null
@@ -129,13 +131,13 @@ class MiscTableTest : DatabaseTestsBase() {
     @Test
     fun testInsert03() {
         val tbl = Misc
-        val date = today
-        val time = LocalTime.now()
-        val dateTime = LocalDateTime.now()
-        val timestamp = Instant.now()
-        val duration = Duration.ofMinutes(1)
-
         withTables(tbl) {
+            val date = today
+            val time = LocalTime.now()
+            val dateTime = LocalDateTime.now()
+            val timestamp = Instant.now()
+            val duration = Duration.ofMinutes(1)
+
             tbl.insert {
                 it[by] = 13
                 it[byn] = 13
@@ -181,13 +183,13 @@ class MiscTableTest : DatabaseTestsBase() {
         val shortStringThatNeedsEscaping = "A'br"
         val stringThatNeedsEscaping = "A'braham Barakhyahu"
         val tbl = Misc
-        val date = today
-        val time = LocalTime.now()
-        val dateTime = LocalDateTime.now()
-        val timestamp = Instant.now()
-        val duration = Duration.ofMinutes(1)
-
         withTables(tbl) {
+            val date = today
+            val time = LocalTime.now()
+            val dateTime = LocalDateTime.now()
+            val timestamp = Instant.now()
+            val duration = Duration.ofMinutes(1)
+
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -217,13 +219,14 @@ class MiscTableTest : DatabaseTestsBase() {
     @Test
     fun testInsertGet01() {
         val tbl = Misc
-        val date = today
-        val time = LocalTime.now()
-        val dateTime = LocalDateTime.now()
-        val timestamp = Instant.now()
-        val duration = Duration.ofMinutes(1)
 
         withTables(tbl) {
+            val date = today
+            val time = LocalTime.now()
+            val dateTime = LocalDateTime.now()
+            val timestamp = Instant.now()
+            val duration = Duration.ofMinutes(1)
+
             val row = tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -1143,14 +1146,15 @@ class MiscTableTest : DatabaseTestsBase() {
     @Test
     fun testUpdate03() {
         val tbl = Misc
-        val date = today
-        val time = LocalTime.now()
-        val dateTime = LocalDateTime.now()
-        val timestamp = Instant.now()
-        val duration = Duration.ofMinutes(1)
-        val eOne = MiscTable.E.ONE
-        val dec = BigDecimal("239.42")
         withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.MARIADB), tables = arrayOf(tbl)) {
+            val date = today
+            val time = LocalTime.now()
+            val dateTime = LocalDateTime.now()
+            val timestamp = Instant.now()
+            val duration = Duration.ofMinutes(1)
+            val eOne = MiscTable.E.ONE
+            val dec = BigDecimal("239.42")
+
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10

@@ -22,6 +22,7 @@ import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLServerDialect
 import org.junit.Test
 import java.time.*
+import java.util.*
 
 class DefaultsTest : DatabaseTestsBase() {
     object TableWithDBDefault : IntIdTable() {
@@ -230,7 +231,8 @@ class DefaultsTest : DatabaseTestsBase() {
             assertEqualDateTime(dtConstValue.atStartOfDay(), row1[TestTable.t3])
             assertEqualDateTime(dtConstValue, row1[TestTable.t4])
             assertEqualDateTime(tsConstValue, row1[TestTable.t5])
-            assertEqualDateTime(tsConstValue, row1[TestTable.t6])
+            val tsInSystemZone = tsConstValue.atZone(testTimeZoneId).withZoneSameLocal(TimeZone.getDefault().toZoneId()).toInstant()
+            assertEqualDateTime(tsInSystemZone, row1[TestTable.t6])
             assertEquals(durConstValue, row1[TestTable.t7])
             assertEquals(durConstValue, row1[TestTable.t8])
             assertEquals(tmConstValue, row1[TestTable.t9])
@@ -258,8 +260,11 @@ class DefaultsTest : DatabaseTestsBase() {
                 it[foo.name] = "bar"
             }
             val result = foo.select { foo.id eq id }.single()
-
-            assertEquals(today, result[foo.defaultDateTime].toLocalDate())
+            val zoneId = when (it) {
+                TestDB.H2, TestDB.H2_MYSQL, TestDB.POSTGRESQL -> testTimeZoneId
+                else -> ZoneId.of("UTC")
+            }
+            assertEquals(LocalDate.now(zoneId), result[foo.defaultDateTime].toLocalDate())
             assertEquals(100, result[foo.defaultInt])
         }
     }

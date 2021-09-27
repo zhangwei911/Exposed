@@ -94,11 +94,9 @@ enum class TestDB(
 
     fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
         val config = DatabaseConfig {
-            System.getProperty("exposed.test.timezone")?.takeIf { it.isNotBlank() }?.let { timeZone ->
-                defaultTimeZone = TimeZone.getTimeZone(timeZone)
-                if (defaultTimeZone != TimeZone.getDefault()) {
-                    exposedLogger.info("Non-default timezone: $timeZone will be used in tests instead of system ${TimeZone.getDefault().id}")
-                }
+            defaultTimeZone = defaultTestTimeZone
+            if (defaultTimeZone != TimeZone.getDefault()) {
+                exposedLogger.info("Non-default timezone: ${defaultTestTimeZone.id}. will be used in tests instead of system ${TimeZone.getDefault().id}")
             }
             configure()
         }
@@ -113,6 +111,12 @@ enum class TestDB(
                 else it.split(',').map { it.trim().toUpperCase() }
             }
             return values().filter { concreteDialects.isEmpty() || it.name in concreteDialects }
+        }
+
+        val defaultTestTimeZone by lazy {
+            System.getProperty("exposed.test.timezone")?.takeIf { it.isNotBlank() }?.let { timeZone ->
+                TimeZone.getTimeZone(timeZone)
+            } ?: TimeZone.getDefault()
         }
     }
 }
