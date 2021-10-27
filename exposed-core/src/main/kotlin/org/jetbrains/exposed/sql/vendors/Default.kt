@@ -87,7 +87,7 @@ abstract class DataTypeProvider {
     open fun booleanType(): String = "BOOLEAN"
 
     /** Returns the SQL representation of the specified [bool] value. */
-    open fun booleanToStatementString(bool: Boolean): String = bool.toString()
+    open fun booleanToStatementString(bool: Boolean): String = bool.toString().uppercase()
 
     /** Returns the boolean value of the specified SQL [value]. */
     open fun booleanFromStringToBoolean(value: String): Boolean = value.toBoolean()
@@ -100,6 +100,10 @@ abstract class DataTypeProvider {
         currentDialect is MysqlDialect -> "$e"
         currentDialect is SQLServerDialect -> "$e"
         else -> "($e)"
+    }
+
+    open fun precessOrderByClause(queryBuilder: QueryBuilder, expression: Expression<*>, sortOrder: SortOrder) {
+        queryBuilder.append((expression as? ExpressionAlias<*>)?.alias ?: expression, " ", sortOrder.code)
     }
 }
 
@@ -164,7 +168,7 @@ abstract class FunctionProvider {
         } else {
             append("CONCAT_WS('", separator, "',")
         }
-        expr.toList().appendTo { +it }
+        expr.appendTo { +it }
         append(")")
     }
 
@@ -181,7 +185,7 @@ abstract class FunctionProvider {
         }
         append(expr.expr)
         if (expr.orderBy.isNotEmpty()) {
-            expr.orderBy.toList().appendTo(prefix = " ORDER BY ") {
+            expr.orderBy.appendTo(prefix = " ORDER BY ") {
                 append(it.first, " ", it.second.name)
             }
         }
@@ -507,6 +511,8 @@ data class ColumnMetadata(
     val size: Int?,
     /** Is the column auto increment */
     val autoIncrement: Boolean,
+    /** Default value */
+    val defaultDbValue: String?,
 )
 
 /**
@@ -550,6 +556,10 @@ interface DatabaseDialect {
 
     /** Returns `true` if the dialect supports subqueries within a UNION/EXCEPT/INTERSECT statement */
     val supportsSubqueryUnions: Boolean get() = false
+
+    val supportsDualTableConcept: Boolean get() = false
+
+    val supportsOrderByNullsFirstLast: Boolean get() = false
 
     /** Returns the name of the current database. */
     fun getDatabase(): String
@@ -598,7 +608,7 @@ interface DatabaseDialect {
     fun dropIndex(tableName: String, indexName: String): String
 
     /** Returns the SQL command that modifies the specified [column]. */
-    fun modifyColumn(column: Column<*>): String
+    fun modifyColumn(column: Column<*>, nullabilityChanged: Boolean, autoIncrementChanged: Boolean, defaultChanged: Boolean): List<String>
 
     fun createDatabase(name: String) = "CREATE DATABASE IF NOT EXISTS ${name.inProperCase()}"
 
@@ -758,7 +768,12 @@ abstract class VendorDialect(
         return "ALTER TABLE ${identifierManager.quoteIfNecessary(tableName)} DROP CONSTRAINT ${identifierManager.quoteIfNecessary(indexName)}"
     }
 
-    override fun modifyColumn(column: Column<*>): String = "MODIFY COLUMN ${column.descriptionDdl(true)}"
+    override fun modifyColumn(
+        column: Column<*>,
+        nullabilityChanged: Boolean,
+        autoIncrementChanged: Boolean,
+        defaultChanged: Boolean
+    ): List<String> = listOf("ALTER TABLE ${TransactionManager.current().identity(column.table)} MODIFY COLUMN ${column.descriptionDdl(true)}")
 }
 
 private val explicitDialect = ThreadLocal<DatabaseDialect?>()

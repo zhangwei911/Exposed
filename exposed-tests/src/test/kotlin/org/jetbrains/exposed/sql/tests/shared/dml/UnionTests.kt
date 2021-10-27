@@ -3,9 +3,14 @@ package org.jetbrains.exposed.sql.tests.shared.dml
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
+import org.jetbrains.exposed.sql.tests.shared.assertEqualCollections
+import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
+import org.jetbrains.exposed.sql.tests.shared.assertEquals
+import org.jetbrains.exposed.sql.vendors.MariaDBDialect
+import org.jetbrains.exposed.sql.vendors.PostgreSQLDialect
+import org.jetbrains.exposed.sql.vendors.SQLServerDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.junit.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -51,11 +56,11 @@ class UnionTests : DatabaseTestsBase() {
             val union = andreyQuery.union(andreyQuery).orderBy(idAlias, SortOrder.DESC)
 
             union.map { it[idAlias] }.apply {
-                assertEquals(listOf("sergey", "andrey"), this)
+                assertEqualLists(this, "sergey", "andrey")
             }
 
             union.withDistinct(false).map { it[idAlias] }.apply {
-                assertEquals(listOf("sergey", "sergey", "andrey", "andrey"), this)
+                assertEqualLists(this, listOf("sergey", "sergey", "andrey", "andrey"))
             }
         }
     }
@@ -67,7 +72,69 @@ class UnionTests : DatabaseTestsBase() {
             val sergeyQuery = users.select { users.id eq "sergey" }
             andreyQuery.union(sergeyQuery).map { it[users.id] }.apply {
                 assertEquals(2, size)
-                assertTrue(containsAll(listOf("andrey", "sergey")))
+                assertEqualLists(this, "andrey", "sergey")
+            }
+        }
+    }
+
+    @Test
+    fun `test intersection of three queries`() {
+        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+            val usersQuery = users.selectAll()
+            val sergeyQuery = users.select { users.id eq "sergey" }
+            val expectedUsers = usersQuery.map { it[users.id] } + "sergey"
+            val intersectAppliedFirst = when (currentDialect) {
+                is PostgreSQLDialect, is SQLServerDialect, is MariaDBDialect -> true
+                else -> false
+            }
+            usersQuery.unionAll(usersQuery).intersect(sergeyQuery).map { it[users.id] }.apply {
+                if (intersectAppliedFirst) {
+                    assertEquals(6, size)
+                    assertEqualCollections(this, expectedUsers)
+                } else {
+                    assertEquals(1, size)
+                    assertEquals("sergey", this.single())
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `test except of two queries`() {
+        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+            val usersQuery = users.selectAll()
+            val expectedUsers = usersQuery.map { it[users.id] } - "sergey"
+            val sergeyQuery = users.select { users.id eq "sergey" }
+            usersQuery.except(sergeyQuery).map { it[users.id] }.apply {
+                assertEquals(4, size)
+                assertEqualCollections(this, expectedUsers)
+            }
+        }
+    }
+
+    @Test
+    fun `test except of three queries`() {
+        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+            val usersQuery = users.selectAll()
+            val expectedUsers = usersQuery.map { it[users.id] } - "sergey"
+            val sergeyQuery = users.select { users.id eq "sergey" }
+            usersQuery.unionAll(usersQuery).except(sergeyQuery).map { it[users.id] }.apply {
+                assertEquals(4, size)
+                assertEqualCollections(this, expectedUsers)
+            }
+        }
+    }
+
+    @Test
+    fun `test except of two excepts queries`() {
+        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+            val usersQuery = users.selectAll()
+            val expectedUsers = usersQuery.map { it[users.id] } - "sergey" - "andrey"
+            val sergeyQuery = users.select { users.id eq "sergey" }
+            val andreyQuery = users.select { users.id eq "andrey" }
+            usersQuery.except(sergeyQuery).except(andreyQuery).map { it[users.id] }.apply {
+                assertEquals(3, size)
+                assertEqualCollections(this, expectedUsers)
             }
         }
     }
@@ -80,7 +147,7 @@ class UnionTests : DatabaseTestsBase() {
             val eugeneQuery = users.select { users.id eq "eugene" }
             andreyQuery.union(sergeyQuery).union(eugeneQuery).map { it[users.id] }.apply {
                 assertEquals(3, size)
-                assertTrue(containsAll(setOf("andrey", "sergey", "eugene")))
+                assertEqualCollections(this, listOf("andrey", "sergey", "eugene"))
             }
         }
     }
@@ -146,7 +213,7 @@ class UnionTests : DatabaseTestsBase() {
         withCitiesAndUsers { _, users, _ ->
             val andreyQuery = users.select { users.id eq "andrey" }
             andreyQuery.union(andreyQuery).map { it[users.id] }.apply {
-                assertEquals(listOf("andrey"), this)
+                assertEqualLists(this, "andrey")
             }
         }
     }
@@ -156,7 +223,7 @@ class UnionTests : DatabaseTestsBase() {
         withCitiesAndUsers { _, users, _ ->
             val andreyQuery = users.select { users.id eq "andrey" }
             andreyQuery.unionAll(andreyQuery).map { it[users.id] }.apply {
-                assertEquals(List(2) { "andrey" }, this)
+                assertEqualLists(this, "andrey", "andrey")
             }
         }
     }
@@ -165,8 +232,8 @@ class UnionTests : DatabaseTestsBase() {
     fun `test union with all results of three queries`() {
         withCitiesAndUsers { _, users, _ ->
             val andreyQuery = users.select { users.id eq "andrey" }
-            andreyQuery.unionAll(andreyQuery).union(andreyQuery).map { it[users.id] }.apply {
-                assertEquals(List(3) { "andrey" }, this)
+            andreyQuery.unionAll(andreyQuery).unionAll(andreyQuery).map { it[users.id] }.apply {
+                assertEqualLists(this, List(3) { "andrey" })
             }
         }
     }

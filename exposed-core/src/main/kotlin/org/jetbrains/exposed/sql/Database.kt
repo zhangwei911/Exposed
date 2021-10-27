@@ -1,9 +1,9 @@
 package org.jetbrains.exposed.sql
 
+import org.jetbrains.annotations.TestOnly
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedDatabaseMetadata
 import org.jetbrains.exposed.sql.transactions.DEFAULT_ISOLATION_LEVEL
-import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
 import org.jetbrains.exposed.sql.transactions.ThreadLocalTransactionManager
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
@@ -12,9 +12,16 @@ import java.sql.Connection
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-class Database(private val resolvedVendor: String? = null, val connector: () -> ExposedConnection<*>) {
+class Database private constructor(
+    private val resolvedVendor: String? = null,
+    val config: DatabaseConfig,
+    val connector: () -> ExposedConnection<*>
+) {
 
-    var useNestedTransactions: Boolean = false
+    var useNestedTransactions: Boolean = config.useNestedTransactions
+        @Deprecated("Use DatabaseConfig to define the useNestedTransactions")
+        @TestOnly
+        set
 
     internal fun <T> metadata(body: ExposedDatabaseMetadata.() -> T): T {
         val transaction = TransactionManager.currentOrNull()
@@ -36,7 +43,7 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
     }
 
     val dialect by lazy {
-        dialects[vendor.lowercase()]?.invoke() ?: error("No dialect registered for $name. URL=$url")
+        config.explicitDialect ?: dialects[vendor.lowercase()]?.invoke() ?: error("No dialect registered for $name. URL=$url")
     }
 
     val version by lazy { metadata { version } }
@@ -48,9 +55,11 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
 
     val identifierManager by lazy { metadata { identifierManager } }
 
-    var defaultFetchSize: Int? = null
+    var defaultFetchSize: Int? = config.defaultFetchSize
         private set
 
+    @Deprecated("Use DatabaseConfig to define the defaultFetchSize")
+    @TestOnly
     fun defaultFetchSize(size: Int): Database {
         defaultFetchSize = size
         return this
@@ -100,12 +109,101 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
             dialectMapping[prefix] = dialect
         }
 
+        private fun doConnect(
+            explicitVendor: String?,
+            config: DatabaseConfig?,
+            getNewConnection: () -> Connection,
+            setupConnection: (Connection) -> Unit = {},
+            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
+        ): Database {
+            return Database(explicitVendor, config ?: DatabaseConfig.invoke()) {
+                connectionInstanceImpl(getNewConnection().apply { setupConnection(this) })
+            }.apply {
+                TransactionManager.registerManager(this, manager(this))
+            }
+        }
+
+        fun connect(
+            datasource: DataSource,
+            setupConnection: (Connection) -> Unit = {},
+            databaseConfig: DatabaseConfig? = null,
+            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
+        ): Database {
+            return doConnect(
+                explicitVendor = null,
+                config = databaseConfig,
+                getNewConnection = { datasource.connection!! },
+                setupConnection = setupConnection,
+                manager = manager
+            )
+        }
+
+        @Deprecated(
+            level = DeprecationLevel.ERROR,
+            replaceWith = ReplaceWith("connectPool(datasource, setupConnection, manager)"),
+            message = "Use connectPool instead"
+        )
+        fun connect(
+            datasource: ConnectionPoolDataSource,
+            setupConnection: (Connection) -> Unit = {},
+            databaseConfig: DatabaseConfig? = null,
+            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
+        ): Database {
+            return doConnect(
+                explicitVendor = null,
+                config = databaseConfig,
+                getNewConnection = { datasource.pooledConnection.connection!! },
+                setupConnection = setupConnection,
+                manager = manager
+            )
+        }
+
+        fun connectPool(
+            datasource: ConnectionPoolDataSource,
+            setupConnection: (Connection) -> Unit = {},
+            databaseConfig: DatabaseConfig? = null,
+            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
+        ): Database {
+            return doConnect(
+                explicitVendor = null,
+                config = databaseConfig,
+                getNewConnection = { datasource.pooledConnection.connection!! },
+                setupConnection = setupConnection,
+                manager = manager
+            )
+        }
+
+        fun connect(
+            getNewConnection: () -> Connection,
+            databaseConfig: DatabaseConfig? = null,
+            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
+        ): Database {
+            return doConnect(
+                explicitVendor = null,
+                config = databaseConfig,
+                getNewConnection = getNewConnection,
+                manager = manager)
+        }
+
+        fun connect(
+            url: String,
+            driver: String = getDriver(url),
+            user: String = "",
+            password: String = "",
+            setupConnection: (Connection) -> Unit = {},
+            databaseConfig: DatabaseConfig? = null,
+            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
+        ): Database {
+            Class.forName(driver).newInstance()
+            val dialectName = getDialectName(url) ?: error("Can't resolve dialect for connection: $url")
+            return doConnect(dialectName, databaseConfig, { DriverManager.getConnection(url, user, password) }, setupConnection, manager)
+        }
+
         fun getDefaultIsolationLevel(db: Database): Int =
-            when (db.vendor) {
-                SQLiteDialect.dialectName -> Connection.TRANSACTION_SERIALIZABLE
-                OracleDialect.dialectName -> Connection.TRANSACTION_READ_COMMITTED
-                PostgreSQLDialect.dialectName -> Connection.TRANSACTION_READ_COMMITTED
-                PostgreSQLNGDialect.dialectName -> Connection.TRANSACTION_READ_COMMITTED
+            when (db.dialect) {
+                is SQLiteDialect -> Connection.TRANSACTION_SERIALIZABLE
+                is OracleDialect -> Connection.TRANSACTION_READ_COMMITTED
+                is PostgreSQLDialect -> Connection.TRANSACTION_READ_COMMITTED
                 else -> DEFAULT_ISOLATION_LEVEL
             }
 
@@ -113,10 +211,12 @@ class Database(private val resolvedVendor: String? = null, val connector: () -> 
             url.startsWith(prefix)
         }?.value ?: error("Database driver not found for $url")
 
-        private fun getDialectName(url: String) = dialectMapping.entries.firstOrNull { (prefix, _) ->
+        fun getDialectName(url: String) = dialectMapping.entries.firstOrNull { (prefix, _) ->
             url.startsWith(prefix)
-        }?.value ?: error("Can't resolve dialect for connection: $url")
+        }?.value
     }
 }
 
-val Database.name: String get() = url.substringAfterLast('/').substringBefore('?')
+interface DatabaseConnectionAutoRegistration : (Connection) -> ExposedConnection<*>
+
+val Database.name: String get() = url.substringBefore('?').substringAfterLast('/')

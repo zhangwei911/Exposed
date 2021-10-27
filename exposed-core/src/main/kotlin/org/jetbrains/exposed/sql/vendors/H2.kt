@@ -3,8 +3,6 @@ package org.jetbrains.exposed.sql.vendors
 import org.jetbrains.exposed.exceptions.throwUnsupportedException
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
-import java.text.SimpleDateFormat
-import java.util.*
 
 private val Transaction.isMySQLMode: Boolean
     get() = (db.dialect as? H2Dialect)?.isMySQLMode() ?: false
@@ -21,11 +19,7 @@ internal object H2DataTypeProvider : DataTypeProvider() {
 
 internal object H2FunctionProvider : FunctionProvider() {
 
-    private fun dbReleaseDate(transaction: Transaction): Date {
-        val releaseDate = transaction.db.metadata { databaseProductVersion.substringAfterLast('(').substringBeforeLast(')') }
-        val formatter = SimpleDateFormat("yyyy-MM-dd")
-        return formatter.parse(releaseDate)
-    }
+    private fun exactH2Version(transaction: Transaction): String = transaction.db.metadata { databaseProductVersion.substringBefore(" (") }
 
     override fun insert(
         ignore: Boolean,
@@ -34,13 +28,14 @@ internal object H2FunctionProvider : FunctionProvider() {
         expr: String,
         transaction: Transaction
     ): String {
-        val uniqueIdxCols = table.indices.filter { it.unique }.flatMap { it.columns.toList() }
-        val primaryKeys = table.primaryKey?.columns?.toList() ?: emptyList()
-        val uniqueCols = (uniqueIdxCols + primaryKeys).distinct()
-        val borderDate = Date(118, 2, 18)
+        val uniqueCols = mutableSetOf<Column<*>>()
+        table.indices.filter { it.unique }.flatMapTo(uniqueCols) { it.columns }
+        table.primaryKey?.columns?.let { primaryKeys ->
+            uniqueCols += primaryKeys
+        }
         return when {
             // INSERT IGNORE support added in H2 version 1.4.197 (2018-03-18)
-            ignore && uniqueCols.isNotEmpty() && transaction.isMySQLMode && dbReleaseDate(transaction) < borderDate -> {
+            ignore && uniqueCols.isNotEmpty() && transaction.isMySQLMode && exactH2Version(transaction) < "1.4.197" -> {
                 val def = super.insert(false, table, columns, expr, transaction)
                 def + " ON DUPLICATE KEY UPDATE " + uniqueCols.joinToString { "${transaction.identity(it)}=VALUES(${transaction.identity(it)})" }
             }
@@ -163,8 +158,8 @@ open class H2Dialect : VendorDialect(dialectName, H2DataTypeProvider, H2Function
 
     override fun createDatabase(name: String) = "CREATE SCHEMA IF NOT EXISTS ${name.inProperCase()}"
 
-    override fun modifyColumn(column: Column<*>): String =
-        super.modifyColumn(column).replace("MODIFY COLUMN", "ALTER COLUMN")
+    override fun modifyColumn(column: Column<*>, nullabilityChanged: Boolean, autoIncrementChanged: Boolean, defaultChanged: Boolean): List<String> =
+        super.modifyColumn(column, nullabilityChanged, autoIncrementChanged, defaultChanged).map { it.replace("MODIFY COLUMN", "ALTER COLUMN") }
 
     override fun dropDatabase(name: String) = "DROP SCHEMA IF EXISTS ${name.inProperCase()}"
 

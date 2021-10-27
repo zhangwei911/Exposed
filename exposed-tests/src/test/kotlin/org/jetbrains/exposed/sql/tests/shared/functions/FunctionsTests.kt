@@ -12,7 +12,6 @@ import org.jetbrains.exposed.sql.tests.shared.dml.DMLTestsData
 import org.jetbrains.exposed.sql.tests.shared.dml.withCitiesAndUsers
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLServerDialect
-import org.jetbrains.exposed.sql.vendors.currentDialect
 import org.junit.Test
 import kotlin.test.assertNotNull
 
@@ -209,7 +208,7 @@ class FunctionsTests : DatabaseTestsBase() {
         }
         withCitiesAndUsers { cities, _, _ ->
             val sumOfLength = LengthFunction(cities.name).sum()
-            val expectedValue = cities.selectAll().sumBy { it[cities.name].length }
+            val expectedValue = cities.selectAll().sumOf { it[cities.name].length }
 
             val results = cities.slice(sumOfLength).selectAll().toList()
             assertEquals(1, results.size)
@@ -428,10 +427,22 @@ class FunctionsTests : DatabaseTestsBase() {
 
             users.slice(users.cityId, coalesceExp1).selectAll().forEach {
                 val cityId = it[users.cityId]
-                if (cityId != null)
+                if (cityId != null) {
                     assertEquals(cityId, it[coalesceExp1])
-                else
+                } else {
                     assertEquals(1000, it[coalesceExp1])
+                }
+            }
+
+            val coalesceExp2 = Coalesce(users.cityId, Op.nullOp<Int>(), intLiteral(1000))
+
+            users.slice(users.cityId, coalesceExp2).selectAll().forEach {
+                val cityId = it[users.cityId]
+                if (cityId != null) {
+                    assertEquals(cityId, it[coalesceExp2])
+                } else {
+                    assertEquals(1000, it[coalesceExp2])
+                }
             }
         }
     }

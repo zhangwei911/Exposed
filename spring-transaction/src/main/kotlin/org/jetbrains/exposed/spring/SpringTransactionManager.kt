@@ -1,10 +1,13 @@
 package org.jetbrains.exposed.spring
 
+import org.jetbrains.exposed.sql.DEFAULT_REPETITION_ATTEMPTS
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.StdOutSqlLogger
 import org.jetbrains.exposed.sql.Transaction
+import org.jetbrains.exposed.sql.addLogger
+import org.jetbrains.exposed.sql.exposedLogger
 import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
-import org.jetbrains.exposed.sql.transactions.DEFAULT_REPETITION_ATTEMPTS
 import org.jetbrains.exposed.sql.transactions.TransactionInterface
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.springframework.jdbc.datasource.ConnectionHolder
@@ -18,6 +21,7 @@ import javax.sql.DataSource
 
 class SpringTransactionManager(
     _dataSource: DataSource,
+    private val showSql: Boolean = false,
     @Volatile override var defaultRepetitionAttempts: Int = DEFAULT_REPETITION_ATTEMPTS
 ) : DataSourceTransactionManager(_dataSource), TransactionManager {
 
@@ -94,10 +98,19 @@ class SpringTransactionManager(
     private fun initTransaction(): Transaction {
         val connection = (TransactionSynchronizationManager.getResource(obtainDataSource()) as ConnectionHolder).connection
 
-        val transactionImpl = SpringTransaction(JdbcConnectionImpl(connection), db, defaultIsolationLevel, currentOrNull())
+        val transactionImpl = try {
+            SpringTransaction(JdbcConnectionImpl(connection), db, defaultIsolationLevel, currentOrNull())
+        } catch (e: Exception) {
+            exposedLogger.error("Failed to start transaction. Connection will be closed.", e)
+            connection.close()
+            throw e
+        }
         TransactionManager.resetCurrent(this)
         return Transaction(transactionImpl).apply {
             TransactionSynchronizationManager.bindResource(this@SpringTransactionManager, this)
+            if (showSql) {
+                addLogger(StdOutSqlLogger)
+            }
         }
     }
 

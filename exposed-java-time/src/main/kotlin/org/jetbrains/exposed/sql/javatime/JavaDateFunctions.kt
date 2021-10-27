@@ -1,4 +1,4 @@
-package org.jetbrains.exposed.sql.`java-time`
+package org.jetbrains.exposed.sql.javatime
 
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.Function

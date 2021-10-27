@@ -27,16 +27,15 @@ interface TransactionInterface {
 
 const val DEFAULT_ISOLATION_LEVEL = Connection.TRANSACTION_REPEATABLE_READ
 
-const val DEFAULT_REPETITION_ATTEMPTS = 3
-
 private object NotInitializedManager : TransactionManager {
     override var defaultIsolationLevel: Int = -1
 
     override var defaultRepetitionAttempts: Int = -1
 
-    override fun newTransaction(isolation: Int, outerTransaction: Transaction?): Transaction = error("Please call Database.connect() before using this code")
+    override fun newTransaction(isolation: Int, outerTransaction: Transaction?): Transaction =
+        error("Please call Database.connect() before using this code")
 
-    override fun currentOrNull(): Transaction? = error("Please call Database.connect() before using this code")
+    override fun currentOrNull(): Transaction = error("Please call Database.connect() before using this code")
 
     override fun bindTransactionToThread(transaction: Transaction?) {
         error("Please call Database.connect() before using this code")
@@ -56,7 +55,7 @@ interface TransactionManager {
     fun bindTransactionToThread(transaction: Transaction?)
 
     companion object {
-        private val currentDefaultDatabase = AtomicReference<Database>()
+        internal val currentDefaultDatabase = AtomicReference<Database>()
 
         var defaultDatabase: Database?
             get() = currentDefaultDatabase.get() ?: databases.firstOrNull()
@@ -80,8 +79,9 @@ interface TransactionManager {
                 registeredDatabases.remove(database)
                 databases.remove(database)
                 currentDefaultDatabase.compareAndSet(database, null)
-                if (currentThreadManager.get() == it)
+                if (currentThreadManager.get() == it) {
                     currentThreadManager.remove()
+                }
             }
         }
 
@@ -100,13 +100,13 @@ interface TransactionManager {
             manager?.let { currentThreadManager.set(it) } ?: currentThreadManager.remove()
         }
 
-        fun currentOrNew(isolation: Int) = currentOrNull() ?: manager.newTransaction(isolation)
+        fun currentOrNew(isolation: Int): Transaction = currentOrNull() ?: manager.newTransaction(isolation)
 
-        fun currentOrNull() = manager.currentOrNull()
+        fun currentOrNull(): Transaction? = manager.currentOrNull()
 
-        fun current() = currentOrNull() ?: error("No transaction in context.")
+        fun current(): Transaction = currentOrNull() ?: error("No transaction in context.")
 
-        fun isInitialized() = defaultDatabase != null
+        fun isInitialized(): Boolean = defaultDatabase != null
     }
 }
 

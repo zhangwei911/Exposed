@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.vendors.MysqlDialect
 import org.jetbrains.exposed.sql.vendors.SQLServerDialect
 import org.jetbrains.exposed.sql.vendors.SQLiteDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
+import kotlin.sequences.Sequence
 
 /**
  * @sample org.jetbrains.exposed.sql.tests.shared.DMLTests.testSelect01
@@ -93,7 +94,7 @@ fun <T : Table, E> T.batchInsert(
 ): List<ResultRow> = batchInsert(data.iterator(), ignoreErrors = ignore, shouldReturnGeneratedValues, body)
 
 fun <T : Table, E> T.batchInsert(
-    data: kotlin.sequences.Sequence<E>,
+    data: Sequence<E>,
     ignore: Boolean = false,
     shouldReturnGeneratedValues: Boolean = true,
     body: BatchInsertStatement.(E) -> Unit
@@ -104,21 +105,48 @@ private fun <T : Table, E> T.batchInsert(
     ignoreErrors: Boolean = false,
     shouldReturnGeneratedValues: Boolean = true,
     body: BatchInsertStatement.(E) -> Unit
-): List<ResultRow> {
-    fun newBatchStatement(): BatchInsertStatement {
-        return if (currentDialect is SQLServerDialect && this.autoIncColumn != null) {
-            SQLServerBatchInsertStatement(this, ignoreErrors, shouldReturnGeneratedValues)
-        } else {
-            BatchInsertStatement(this, ignoreErrors, shouldReturnGeneratedValues)
-        }
+): List<ResultRow> = executeBatch(data, body) {
+    if (currentDialect is SQLServerDialect && this.autoIncColumn != null) {
+        SQLServerBatchInsertStatement(this, ignoreErrors, shouldReturnGeneratedValues)
+    } else {
+        BatchInsertStatement(this, ignoreErrors, shouldReturnGeneratedValues)
     }
+}
 
+/**
+ * @sample org.jetbrains.exposed.sql.tests.shared.DMLTests.testBatchInsert01
+ */
+fun <T : Table, E : Any> T.batchReplace(
+    data: Iterable<E>,
+    shouldReturnGeneratedValues: Boolean = true,
+    body: BatchReplaceStatement.(E) -> Unit
+): List<ResultRow> = batchReplace(data.iterator(), shouldReturnGeneratedValues, body)
+
+fun <T : Table, E : Any> T.batchReplace(
+    data: Sequence<E>,
+    shouldReturnGeneratedValues: Boolean = true,
+    body: BatchReplaceStatement.(E) -> Unit
+): List<ResultRow> = batchReplace(data.iterator(), shouldReturnGeneratedValues, body)
+
+private fun <T : Table, E> T.batchReplace(
+    data: Iterator<E>,
+    shouldReturnGeneratedValues: Boolean = true,
+    body: BatchReplaceStatement.(E) -> Unit
+): List<ResultRow> = executeBatch(data, body) {
+    BatchReplaceStatement(this, shouldReturnGeneratedValues)
+}
+
+private fun <E, S: BaseBatchInsertStatement> executeBatch(
+    data: Iterator<E>,
+    body: S.(E) -> Unit,
+    newBatchStatement: () -> S
+): List<ResultRow> {
     if (!data.hasNext()) return emptyList()
 
     var statement = newBatchStatement()
 
     val result = ArrayList<ResultRow>()
-    fun BatchInsertStatement.handleBatchException(removeLastData: Boolean = false, body: BatchInsertStatement.() -> Unit) {
+    fun S.handleBatchException(removeLastData: Boolean = false, body: S.() -> Unit) {
         try {
             body()
             if (removeLastData) validateLastBatch()
@@ -143,7 +171,7 @@ private fun <T : Table, E> T.batchInsert(
         }
     }
 
-    for (element in data) {
+    data.forEach { element ->
         statement.handleBatchException { addBatch() }
         statement.handleBatchException(true) { body(element) }
     }
@@ -154,7 +182,7 @@ private fun <T : Table, E> T.batchInsert(
     return result
 }
 
-fun <T : Table> T.insertIgnore(body: T.(UpdateBuilder<*>) -> Unit): InsertStatement<Long> = InsertStatement<Long>(this, isIgnore = true).apply {
+fun <T: Table> T.insertIgnore(body: T.(UpdateBuilder<*>)->Unit): InsertStatement<Long> = InsertStatement<Long>(this, isIgnore = true).apply {
     body(this)
     execute(TransactionManager.current())
 }

@@ -1,16 +1,24 @@
 package org.jetbrains.exposed.sql
 
 import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.vendors.DataTypeProvider
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
+import org.jetbrains.exposed.sql.vendors.PostgreSQLDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
+import java.math.BigDecimal
 
 object SchemaUtils {
-    private class TableDepthGraph(val tables: List<Table>) {
-        val graph = fetchAllTables().associate { t ->
-            t to t.columns.mapNotNull { c ->
-                c.referee?.let { it.table to c.columnType.nullable }
-            }.toMap()
+    private class TableDepthGraph(val tables: Iterable<Table>) {
+        val graph = fetchAllTables().let { tables ->
+            if (tables.isEmpty()) emptyMap()
+            else {
+                tables.associateWith { t ->
+                    t.columns.mapNotNull { c ->
+                        c.referee?.let { it.table to c.columnType.nullable }
+                    }.toMap()
+                }
+            }
         }
 
         private fun fetchAllTables(): HashSet<Table> {
@@ -28,6 +36,8 @@ object SchemaUtils {
         }
 
         fun sorted(): List<Table> {
+            if (!tables.iterator().hasNext()) return emptyList()
+
             val visited = mutableSetOf<Table>()
             val result = arrayListOf<Table>()
 
@@ -48,6 +58,7 @@ object SchemaUtils {
         }
 
         fun hasCycle(): Boolean {
+            if (!tables.iterator().hasNext()) return false
             val visited = mutableSetOf<Table>()
             val recursion = mutableSetOf<Table>()
 
@@ -69,12 +80,11 @@ object SchemaUtils {
         }
     }
 
-    fun sortTablesByReferences(tables: Iterable<Table>) = TableDepthGraph(tables.toList()).sorted()
+    fun sortTablesByReferences(tables: Iterable<Table>) = TableDepthGraph(tables).sorted()
     fun checkCycle(vararg tables: Table) = TableDepthGraph(tables.toList()).hasCycle()
 
     fun createStatements(vararg tables: Table): List<String> {
-        if (tables.isEmpty())
-            return emptyList()
+        if (tables.isEmpty()) return emptyList()
 
         val toCreate = sortTablesByReferences(tables.toList()).filterNot { it.exists() }
         val alters = arrayListOf<String>()
@@ -108,11 +118,40 @@ object SchemaUtils {
 
     fun createIndex(index: Index) = index.createStatement()
 
+    @Suppress("NestedBlockDepth", "ComplexMethod")
+    private fun DataTypeProvider.dbDefaultToString(exp: Expression<*>): String {
+        return when (exp) {
+            is LiteralOp<*> -> when (exp.value) {
+                is Boolean -> when (currentDialect) {
+                    is MysqlDialect -> if (exp.value) "1" else "0"
+                    is PostgreSQLDialect -> exp.value.toString()
+                    else -> booleanToStatementString(exp.value)
+                }
+                is String -> when (currentDialect) {
+                    is PostgreSQLDialect -> "${exp.value}'::character varying"
+                    else -> exp.value
+                }
+                is Enum<*> -> when (exp.columnType) {
+                    is EnumerationNameColumnType<*> -> when (currentDialect) {
+                        is PostgreSQLDialect -> "${exp.value.name}'::character varying"
+                        else -> exp.value.name
+                    }
+                    else -> processForDefaultValue(exp)
+                }
+                is BigDecimal -> when (currentDialect) {
+                    is MysqlDialect -> exp.value.setScale((exp.columnType as DecimalColumnType).scale).toString()
+                    else -> processForDefaultValue(exp)
+                }
+                else -> processForDefaultValue(exp)
+            }
+            else -> processForDefaultValue(exp)
+        }
+    }
+
     fun addMissingColumnsStatements(vararg tables: Table): List<String> {
         with(TransactionManager.current()) {
             val statements = ArrayList<String>()
-            if (tables.isEmpty())
-                return statements
+            if (tables.isEmpty()) return statements
 
             val existingTableColumns = logTimeSpent("Extracting table columns") {
                 currentDialect.tableColumns(*tables)
@@ -133,16 +172,21 @@ object SchemaUtils {
                     }
 
                     // sync existing columns
-                    val redoColumn = table.columns.filter { c ->
-                        thisTableExistingColumns.any {
-                            if (c.name.equals(it.name, true)) {
-                                val incorrectNullability = it.nullable != c.columnType.nullable
-                                val incorrectAutoInc = it.autoIncrement != c.columnType.isAutoInc
-                                incorrectNullability || incorrectAutoInc
-                            } else false
+                    val dataTypeProvider = db.dialect.dataTypeProvider
+                    val redoColumn = table.columns.mapNotNull { c ->
+                        val changedState = thisTableExistingColumns.find { c.name.equals(it.name, true) }?.let {
+                            val incorrectNullability = it.nullable != c.columnType.nullable
+                            val incorrectAutoInc = it.autoIncrement != c.columnType.isAutoInc
+                            val incorrectDefaults =
+                                it.defaultDbValue != c.dbDefaultValue?.let { dataTypeProvider.dbDefaultToString(it) }
+                            Triple(incorrectNullability, incorrectAutoInc, incorrectDefaults)
                         }
+
+                        changedState?.takeIf { it.first || it.second || it.third }?.let { c to changedState }
                     }
-                    redoColumn.flatMapTo(statements) { it.modifyStatement() }
+                    redoColumn.flatMapTo(statements) { (col, changedState) ->
+                        col.modifyStatements(changedState.first, changedState.second, changedState.third)
+                    }
                 }
             }
 
@@ -175,9 +219,9 @@ object SchemaUtils {
     }
 
     private fun Transaction.execStatements(inBatch: Boolean, statements: List<String>) {
-        if (inBatch)
+        if (inBatch) {
             execInBatch(statements)
-        else {
+        } else {
             for (statement in statements) {
                 exec(statement)
             }
@@ -260,6 +304,25 @@ object SchemaUtils {
             }
             db.dialect.resetCaches()
         }
+    }
+
+    /**
+     * The function provides a list of statements those need to be executed to make
+     * existing table definition compatible with Exposed tables mapping.
+     */
+    fun statementsRequiredToActualizeScheme(vararg tables: Table): List<String> {
+        val (tablesToCreate, tablesToAlter) = tables.partition { !it.exists() }
+        val createStatements = logTimeSpent("Preparing create tables statements") {
+            createStatements(*tablesToCreate.toTypedArray())
+        }
+        val alterStatements = logTimeSpent("Preparing alter table statements") {
+            addMissingColumnsStatements(*tablesToAlter.toTypedArray())
+        }
+        val executedStatements = createStatements + alterStatements
+        val modifyTablesStatements = logTimeSpent("Checking mapping consistence") {
+            checkMappingConsistence(*tablesToAlter.toTypedArray()).filter { it !in executedStatements }
+        }
+        return executedStatements + modifyTablesStatements
     }
 
     /**

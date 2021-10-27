@@ -9,6 +9,7 @@ import io.r2dbc.postgresql.PostgresqlConnectionFactory
 import io.r2dbc.spi.ConnectionFactory
 import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.rdbc.connect
+import org.h2.engine.Mode
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
 import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
@@ -183,6 +184,10 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
             jdbc = Jdbc.POSTGRESQL
         )
     }
+    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
+        val config = DatabaseConfig(configure)
+        return Database.connect(connection(), databaseConfig = config, user = user, password = pass, driver = driver)
+    }
 
     companion object {
         private fun <T : Any> KClass<out T>.recursiveSealedSubclasses(): List<T> = sealedSubclasses.map { clazz ->
@@ -197,7 +202,7 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
             val embeddedTests = (values - Jdbc.ORACLE - Jdbc.SQLSERVER - Jdbc.MARIADB).joinToString { it.name }
             val concreteDialects = System.getProperty("exposed.test.dialects", embeddedTests).let {
                 if (it == "") emptyList()
-                else it.split(',').map { it.trim().toUpperCase() }
+                else it.split(',').map { it.trim().uppercase() }
             }
             return values.filter { concreteDialects.isEmpty() || it.name in concreteDialects }
         }

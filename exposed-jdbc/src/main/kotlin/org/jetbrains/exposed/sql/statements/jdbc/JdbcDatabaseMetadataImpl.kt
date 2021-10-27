@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql.statements.jdbc
 
+import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.ForeignKeyConstraint
 import org.jetbrains.exposed.sql.Index
 import org.jetbrains.exposed.sql.ReferenceOption
@@ -12,6 +13,7 @@ import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 import java.sql.DatabaseMetaData
 import java.sql.ResultSet
+import java.util.concurrent.ConcurrentHashMap
 
 class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData) : ExposedDatabaseMetadata(database) {
     override val url: String by lazyMetadata { url }
@@ -30,10 +32,11 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
             "PostgreSQL JDBC Driver" -> PostgreSQLDialect.dialectName
             "Oracle JDBC driver" -> OracleDialect.dialectName
             else -> {
-                if (driverName.startsWith("Microsoft JDBC Driver "))
+                if (driverName.startsWith("Microsoft JDBC Driver ")) {
                     SQLServerDialect.dialectName
-                else
-                    error("Unsupported driver $driverName detected")
+                } else {
+                    Database.getDialectName(url) ?: error("Unsupported driver $driverName detected")
+                }
             }
         }
     }
@@ -52,7 +55,11 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
     override val supportsMultipleResultSets by lazyMetadata { supportsMultipleResultSets() }
     override val supportsSelectForUpdate: Boolean by lazyMetadata { supportsSelectForUpdate() }
 
-    override val identifierManager: IdentifierManagerApi by lazyMetadata { JdbcIdentifierManager(this) }
+    override val identifierManager: IdentifierManagerApi by lazyMetadata {
+        identityManagerCache.computeIfAbsent(url) {
+            JdbcIdentifierManager(this)
+        }
+    }
 
     private var _currentScheme: String? = null
         get() {
@@ -142,17 +149,30 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
         val rs = metadata.getColumns(databaseName, currentScheme, "%", "%")
         val result = rs.extractColumns(tables) {
             // @see java.sql.DatabaseMetaData.getColumns
+            // That read should go first as Oracle driver closes connection after that
+            val defaultDbValue = it.getString("COLUMN_DEF")?.let { sanitizedDefault(it) }
+            val autoIncrement = it.getString("IS_AUTOINCREMENT") == "YES"
+            val type = it.getInt("DATA_TYPE")
             val columnMetadata = ColumnMetadata(
-                it.getString("COLUMN_NAME"),/*.quoteIdentifierWhenWrongCaseOrNecessary(tr)*/
-                it.getInt("DATA_TYPE"),
+                it.getString("COLUMN_NAME"),
+                type,
                 it.getBoolean("NULLABLE"),
                 it.getInt("COLUMN_SIZE").takeIf { it != 0 },
-                it.getString("IS_AUTOINCREMENT") == "YES",
+                autoIncrement,
+                // Not sure this filters enough but I dont think we ever want to have sequences here
+                defaultDbValue?.takeIf { !autoIncrement },
             )
             it.getString("TABLE_NAME") to columnMetadata
         }
         rs.close()
         return result
+    }
+
+    private fun sanitizedDefault(defaultValue: String) = when (currentDialect) {
+        is SQLServerDialect -> defaultValue.trim('(', ')', '\'')
+        is OracleDialect -> defaultValue.trim().trim('\'')
+        is MysqlDialect -> defaultValue.substringAfter("b'").trim('\'').trim()
+        else -> defaultValue.trim('\'').trim()
     }
 
     private val existingIndicesCache = HashMap<Table, List<Index>>()
@@ -229,9 +249,13 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
     }
 
     private fun <T> lazyMetadata(body: DatabaseMetaData.() -> T) = lazy { metadata.body() }
+
+    companion object {
+        private val identityManagerCache = ConcurrentHashMap<String, JdbcIdentifierManager>()
+    }
 }
 
-fun <T> ResultSet.iterate(body: ResultSet.() -> T): List<T> {
+private fun <T> ResultSet.iterate(body: ResultSet.() -> T): List<T> {
     val result = arrayListOf<T>()
     while (next()) {
         result.add(body())

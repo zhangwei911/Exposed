@@ -1,8 +1,10 @@
 package org.jetbrains.exposed.sql.transactions
 
+import org.jetbrains.annotations.TestOnly
 import org.jetbrains.exposed.exceptions.ExposedSQLException
 import org.jetbrains.exposed.exceptions.isSQLException
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.SqlLogger
 import org.jetbrains.exposed.sql.Transaction
 import org.jetbrains.exposed.sql.exposedLogger
@@ -10,18 +12,25 @@ import org.jetbrains.exposed.sql.statements.api.ExposedConnection
 import org.jetbrains.exposed.sql.statements.api.ExposedSavepoint
 
 class ThreadLocalTransactionManager(
-    private val db: Database,
-    @Volatile override var defaultRepetitionAttempts: Int
+    private val db: Database
 ) : TransactionManager {
+    @Volatile
+    override var defaultRepetitionAttempts: Int = db.config.defaultRepetitionAttempts
+        @Deprecated("Use DatabaseConfig to define the defaultRepetitionAttempts")
+        @TestOnly
+        set
 
     @Volatile
-    override var defaultIsolationLevel: Int = -1
+    override var defaultIsolationLevel: Int = db.config.defaultIsolationLevel
         get() {
             if (field == -1) {
                 field = Database.getDefaultIsolationLevel(db)
             }
             return field
         }
+        @Deprecated("Use DatabaseConfig to define the defaultIsolationLevel")
+        @TestOnly
+        set
 
     val threadLocal = ThreadLocal<Transaction>()
 
@@ -176,6 +185,7 @@ fun <T> inTopLevelTransaction(
 
             @Suppress("TooGenericExceptionCaught")
             try {
+                transaction.db.config.defaultSchema?.let { SchemaUtils.setSchema(it) }
                 val answer = transaction.statement()
                 transaction.commit()
                 return answer

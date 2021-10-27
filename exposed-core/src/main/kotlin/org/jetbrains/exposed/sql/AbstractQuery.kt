@@ -4,14 +4,14 @@ import org.jetbrains.exposed.sql.statements.Statement
 import org.jetbrains.exposed.sql.statements.StatementType
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import java.sql.ResultSet
+import java.util.concurrent.ConcurrentHashMap
 
 abstract class AbstractQuery<T : AbstractQuery<T>>(targets: List<Table>) : SizedIterable<ResultRow>, Statement<ResultSet>(StatementType.SELECT, targets) {
     protected val transaction get() = TransactionManager.current()
 
     var orderByExpressions: List<Pair<Expression<*>, SortOrder>> = mutableListOf()
         private set
-    var distinct: Boolean = false
-        protected set
+
     var limit: Int? = null
         protected set
     var offset: Long = 0
@@ -23,7 +23,6 @@ abstract class AbstractQuery<T : AbstractQuery<T>>(targets: List<Table>) : Sized
 
     protected fun copyTo(other: AbstractQuery<T>) {
         other.orderByExpressions = orderByExpressions.toMutableList()
-        other.distinct = distinct
         other.limit = limit
         other.offset = offset
         other.fetchSize = fetchSize
@@ -38,9 +37,7 @@ abstract class AbstractQuery<T : AbstractQuery<T>>(targets: List<Table>) : Sized
         if (it.args.isNotEmpty()) listOf(it.args) else emptyList()
     }
 
-    fun withDistinct(value: Boolean = true): T = apply {
-        distinct = value
-    } as T
+    abstract fun withDistinct(value: Boolean = true): T
 
     override fun limit(n: Int, offset: Long): T = apply {
         limit = n
@@ -63,7 +60,7 @@ abstract class AbstractQuery<T : AbstractQuery<T>>(targets: List<Table>) : Sized
 
     override fun iterator(): Iterator<ResultRow> {
         val resultIterator = ResultIterator(transaction.exec(queryToExecute)!!)
-        return if (transaction.db.supportsMultipleResultSets) resultIterator
+        return if (transaction.db.supportsMultipleResultSets) resultIterator.also { trackStatementOpen(transaction, it) }
         else {
             Iterable { resultIterator }.toList().iterator()
         }
@@ -83,8 +80,29 @@ abstract class AbstractQuery<T : AbstractQuery<T>>(targets: List<Table>) : Sized
 
         override fun hasNext(): Boolean {
             if (hasNext == null) hasNext = rs.next()
-            if (hasNext == false) rs.close()
+            if (hasNext == false) {
+                rs.close()
+                untrackStatement(transaction, this)
+            }
             return hasNext!!
+        }
+    }
+
+    companion object {
+        private val trackedOpenResultIterators = ConcurrentHashMap<Transaction, MutableSet<AbstractQuery<*>.ResultIterator>>()
+
+        private fun trackStatementOpen(transaction: Transaction, iterator: AbstractQuery<*>.ResultIterator) {
+            trackedOpenResultIterators.getOrPut(transaction) { ConcurrentHashMap.newKeySet() }.add(iterator)
+        }
+
+        private fun untrackStatement(transaction: Transaction, iterator: AbstractQuery<*>.ResultIterator) {
+            trackedOpenResultIterators[transaction]?.remove(iterator)
+        }
+
+        internal fun closeOpenedStatements(transaction: Transaction) {
+            trackedOpenResultIterators.remove(transaction)?.forEach {
+                if (!it.rs.isClosed) it.rs.close()
+            }
         }
     }
 }

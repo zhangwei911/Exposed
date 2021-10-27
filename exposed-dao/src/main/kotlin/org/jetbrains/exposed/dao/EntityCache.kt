@@ -6,6 +6,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.transactionScope
 import java.util.*
 import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 
 val Transaction.entityCache: EntityCache by transactionScope { EntityCache(this) }
 
@@ -17,10 +18,33 @@ class EntityCache(private val transaction: Transaction) {
     private val updates = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
     internal val referrers = HashMap<Column<*>, MutableMap<EntityID<*>, SizedIterable<*>>>()
 
+    /**
+     * Amount of entities to keep in a cache per an Entity class.
+     * On setting a new value all data stored in cache will be adjusted to a new size
+     */
+    @Suppress("MemberVisibilityCanBePrivate")
+    var maxEntitiesToStore = transaction.db.config.maxEntitiesToStoreInCachePerEntity
+        set(value) {
+            val diff = value - field
+            field = value
+            if (diff < 0) {
+                data.values.forEach { map ->
+                    val sizeExceed = map.size - value
+                    if (sizeExceed > 0) {
+                        val iterator = map.iterator()
+                        repeat(sizeExceed) {
+                            iterator.next()
+                            iterator.remove()
+                        }
+                    }
+                }
+            }
+        }
+
     private fun getMap(f: EntityClass<*, *>): MutableMap<Any, Entity<*>> = getMap(f.table)
 
     private fun getMap(table: IdTable<*>): MutableMap<Any, Entity<*>> = data.getOrPut(table) {
-        LinkedHashMap()
+        LimitedHashMap()
     }
 
     fun <R : Entity<*>> getReferrers(sourceId: EntityID<*>, key: Column<*>): SizedIterable<R>? {
@@ -57,7 +81,13 @@ class EntityCache(private val transaction: Transaction) {
     }
 
     fun flush() {
-        flush(inserts.keys + updates.keys)
+        val toFlush = when {
+            inserts.isEmpty() && updates.isEmpty() -> emptyList()
+            inserts.isNotEmpty() && updates.isNotEmpty() -> inserts.keys + updates.keys
+            inserts.isNotEmpty() -> inserts.keys
+            else -> updates.keys
+        }
+        flush(toFlush)
     }
 
     private fun updateEntities(idTable: IdTable<*>) {
@@ -96,22 +126,28 @@ class EntityCache(private val transaction: Transaction) {
             }
 
             if (insertedTables.isNotEmpty()) {
-                removeTablesReferrers(insertedTables)
+                removeTablesReferrers(insertedTables, true)
             }
         } finally {
             flushingEntities = false
         }
     }
 
-    internal fun removeTablesReferrers(insertedTables: Collection<Table>) {
+    internal fun removeTablesReferrers(tables: Collection<Table>, isInsert: Boolean) {
+        val insertedTablesSet = tables.toSet()
+        val columnsToInvalidate = tables.flatMapTo(hashSetOf()) { it.columns.mapNotNull { it.takeIf { it.referee != null } } }
 
-        val insertedTablesSet = insertedTables.toSet()
-        val tablesToRemove: List<Table> = referrers.values.flatMapTo(HashSet()) { it.keys.map { it.table } }
-            .filter { table -> table.columns.any { c -> c.referee?.table in insertedTablesSet } } + insertedTablesSet
+        columnsToInvalidate.forEach {
+            referrers.remove(it)
+        }
 
-        referrers.mapNotNull { (entityId, entityReferrers) ->
-            entityReferrers.filterKeys { it.table in tablesToRemove }.keys.forEach { entityReferrers.remove(it) }
-            entityId.takeIf { entityReferrers.isEmpty() }
+        referrers.keys.filter { refColumn ->
+            when {
+                isInsert -> false
+                refColumn.referee?.table in insertedTablesSet -> true
+                refColumn.table.columns.any { it.referee?.table in tables } -> true
+                else -> false
+            }
         }.forEach {
             referrers.remove(it)
         }
@@ -166,6 +202,12 @@ class EntityCache(private val transaction: Transaction) {
 
     fun clearReferrersCache() {
         referrers.clear()
+    }
+
+    private inner class LimitedHashMap<K, V> : LinkedHashMap<K, V>() {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<K, V>?): Boolean {
+            return size > maxEntitiesToStore
+        }
     }
 
     companion object {

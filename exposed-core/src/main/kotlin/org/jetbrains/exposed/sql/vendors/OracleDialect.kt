@@ -65,9 +65,9 @@ internal object OracleFunctionProvider : FunctionProvider() {
         vararg expr: Expression<*>
     ): Unit = queryBuilder {
         if (separator == "") {
-            expr.toList().appendTo(separator = " || ") { +it }
+            expr.appendTo(separator = " || ") { +it }
         } else {
-            expr.toList().appendTo(separator = " || '$separator' || ") { +it }
+            expr.appendTo(separator = " || '$separator' || ") { +it }
         }
     }
 
@@ -207,10 +207,24 @@ open class OracleDialect : VendorDialect(dialectName, OracleDataTypeProvider, Or
     override val needsQuotesWhenSymbolsInNames: Boolean = false
     override val supportsMultipleGeneratedKeys: Boolean = false
     override val supportsOnlyIdentifiersInGeneratedKeys: Boolean = true
+    override val supportsDualTableConcept: Boolean = true
+    override val supportsOrderByNullsFirstLast: Boolean = true
 
     override fun isAllowedAsColumnDefault(e: Expression<*>): Boolean = true
 
-    override fun modifyColumn(column: Column<*>): String = super.modifyColumn(column).replace("MODIFY COLUMN", "MODIFY")
+    override fun modifyColumn(column: Column<*>, nullabilityChanged: Boolean, autoIncrementChanged: Boolean, defaultChanged: Boolean): List<String> {
+        val result = super.modifyColumn(column, nullabilityChanged, autoIncrementChanged, defaultChanged).map {
+            it.replace("MODIFY COLUMN", "MODIFY")
+        }
+        return if (!nullabilityChanged) {
+            val nullableState = if (column.columnType.nullable) "NULL " else "NOT NULL"
+            result.map {
+                it.replace(nullableState, "")
+            }
+        } else {
+            result
+        }
+    }
 
     override fun createDatabase(name: String): String = "CREATE DATABASE ${name.inProperCase()}"
 

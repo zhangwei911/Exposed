@@ -23,6 +23,26 @@ internal object MysqlDataTypeProvider : DataTypeProvider() {
     override fun ulongType(): String = "BIGINT UNSIGNED"
 
     override fun textType(): String = "longtext"
+
+    override fun booleanFromStringToBoolean(value: String): Boolean = when(value) {
+        "0" -> false
+        "1" -> true
+        else -> value.toBoolean()
+    }
+
+    override fun precessOrderByClause(queryBuilder: QueryBuilder, expression: Expression<*>, sortOrder: SortOrder) {
+
+        when (sortOrder) {
+            SortOrder.ASC, SortOrder.DESC -> super.precessOrderByClause(queryBuilder, expression, sortOrder)
+            SortOrder.ASC_NULLS_FIRST -> super.precessOrderByClause(queryBuilder, expression, SortOrder.ASC)
+            SortOrder.DESC_NULLS_LAST -> super.precessOrderByClause(queryBuilder, expression, SortOrder.DESC)
+            else -> {
+                val exp = (expression as? ExpressionAlias<*>)?.alias ?: expression
+                val sortOrderAdjusted = if (sortOrder == SortOrder.ASC_NULLS_LAST) SortOrder.DESC else SortOrder.ASC
+                queryBuilder.append("-", exp, " ", sortOrderAdjusted.code)
+            }
+        }
+    }
 }
 
 internal open class MysqlFunctionProvider : FunctionProvider() {
@@ -123,6 +143,8 @@ open class MysqlDialect : VendorDialect(dialectName, MysqlDataTypeProvider, Mysq
     override val supportsCreateSequence: Boolean = false
 
     override val supportsSubqueryUnions: Boolean = true
+
+    override val supportsOrderByNullsFirstLast: Boolean = false
 
     fun isFractionDateTimeSupported(): Boolean = TransactionManager.current().db.isVersionCovers(BigDecimal("5.6"))
 

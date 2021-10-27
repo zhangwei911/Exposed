@@ -6,11 +6,18 @@ import org.jetbrains.exposed.sql.vendors.currentDialect
 import java.sql.ResultSet
 import java.util.*
 
-enum class SortOrder {
-    ASC, DESC
+enum class SortOrder(val code: String) {
+    ASC(code = "ASC"),
+    DESC(code = "DESC"),
+    ASC_NULLS_FIRST(code = "ASC NULLS FIRST"),
+    DESC_NULLS_FIRST(code = "DESC NULLS FIRST"),
+    ASC_NULLS_LAST(code = "ASC NULLS LAST"),
+    DESC_NULLS_LAST(code = "DESC NULLS LAST")
 }
 
 open class Query(override var set: FieldSet, where: Op<Boolean>?) : AbstractQuery<Query>(set.source.targetTables()) {
+    var distinct: Boolean = false
+        protected set
 
     var groupedByColumns: List<Expression<*>> = mutableListOf()
         private set
@@ -34,6 +41,7 @@ open class Query(override var set: FieldSet, where: Op<Boolean>?) : AbstractQuer
 
     override fun copy(): Query = Query(set, where).also { copy ->
         copyTo(copy)
+        copy.distinct = distinct
         copy.groupedByColumns = groupedByColumns.toMutableList()
         copy.having = having
         copy.forUpdate = forUpdate
@@ -42,6 +50,10 @@ open class Query(override var set: FieldSet, where: Op<Boolean>?) : AbstractQuer
     override fun forUpdate(): Query {
         this.forUpdate = true
         return this
+    }
+
+    override fun withDistinct(value: Boolean): Query = apply {
+        distinct = value
     }
 
     override fun notForUpdate(): Query {
@@ -95,8 +107,10 @@ open class Query(override var set: FieldSet, where: Op<Boolean>?) : AbstractQuer
                 }
                 set.realFields.appendTo { +it }
             }
-            append(" FROM ")
-            set.source.describe(transaction, this)
+            if (set.source != Table.Dual || currentDialect.supportsDualTableConcept) {
+                append(" FROM ")
+                set.source.describe(transaction, this)
+            }
 
             where?.let {
                 append(" WHERE ")
@@ -118,8 +132,8 @@ open class Query(override var set: FieldSet, where: Op<Boolean>?) : AbstractQuer
 
                 if (orderByExpressions.isNotEmpty()) {
                     append(" ORDER BY ")
-                    orderByExpressions.appendTo {
-                        append((it.first as? ExpressionAlias<*>)?.alias ?: it.first, " ", it.second.name)
+                    orderByExpressions.appendTo { (expression, sortOrder) ->
+                        currentDialect.dataTypeProvider.precessOrderByClause(this, expression, sortOrder)
                     }
                 }
 

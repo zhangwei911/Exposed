@@ -148,7 +148,10 @@ interface ISqlExpressionBuilder {
     }
 
     /** Checks if this expression is equals to some [other] expression. */
-    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.eq(other: Expression<in S2>): EqOp = EqOp(this, other)
+    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.eq(other: Expression<in S2>): Op<Boolean> = when {
+        other.equals(Op.NULL) -> isNull()
+        else -> EqOp(this, other)
+    }
 
     /** Checks if this expression is equals to some [t] value. */
     infix fun <T : Comparable<T>, E : EntityID<T>?> ExpressionWithColumnType<E>.eq(t: T?): Op<Boolean> {
@@ -165,7 +168,10 @@ interface ISqlExpressionBuilder {
     infix fun <T> ExpressionWithColumnType<T>.neq(other: T): Op<Boolean> = if (other == null) isNotNull() else NeqOp(this, wrap(other))
 
     /** Checks if this expression is not equals to some [other] expression. */
-    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.neq(other: Expression<in S2>): NeqOp = NeqOp(this, other)
+    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.neq(other: Expression<in S2>): Op<Boolean> = when {
+        other.equals(Op.NULL) -> isNotNull()
+        else -> NeqOp(this, other)
+    }
 
     /** Checks if this expression is not equals to some [t] value. */
     infix fun <T : Comparable<T>> ExpressionWithColumnType<EntityID<T>>.neq(t: T?): Op<Boolean> = if (t == null) isNotNull() else NeqOp(this, wrap(t))
@@ -355,15 +361,14 @@ interface ISqlExpressionBuilder {
         caseSensitive: Boolean = true
     ): RegexpOp<T> = RegexpOp(this, pattern, caseSensitive)
 
-    /** Checks if this expression doesn't match the [pattern]. Supports regular expressions. */
-    @Deprecated("Use not(RegexpOp()) instead", ReplaceWith("regexp(pattern).not()"), DeprecationLevel.ERROR)
-    infix fun <T : String?> ExpressionWithColumnType<T>.notRegexp(pattern: String): Op<Boolean> = TODO()
-
     // Conditional Expressions
 
     /** Returns the first of its arguments that is not null. */
-    fun <T, S : T?, E : ExpressionWithColumnType<S>, R : T> coalesce(expr: E, alternate: ExpressionWithColumnType<out T>): Coalesce<T?, S, R> =
-        Coalesce(expr, alternate)
+    fun <T, S : T?, A : Expression<out T>, R : T> coalesce(
+        expr: ExpressionWithColumnType<S>,
+        alternate: A,
+        vararg others: A
+    ): Coalesce<T?, S, R> = Coalesce(expr, alternate, others = others)
 
     fun case(value: Expression<*>? = null): Case = Case(value)
 

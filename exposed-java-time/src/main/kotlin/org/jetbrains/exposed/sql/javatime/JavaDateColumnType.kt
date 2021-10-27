@@ -1,4 +1,4 @@
-package org.jetbrains.exposed.sql.`java-time`
+package org.jetbrains.exposed.sql.javatime
 
 import org.jetbrains.exposed.sql.Column
 import org.jetbrains.exposed.sql.ColumnType
@@ -12,32 +12,32 @@ import java.time.*
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-private val DEFAULT_DATE_STRING_FORMATTER by lazy {
+internal val DEFAULT_DATE_STRING_FORMATTER by lazy {
     DateTimeFormatter.ISO_LOCAL_DATE.withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
 }
-private val DEFAULT_DATE_TIME_STRING_FORMATTER by lazy {
+internal val DEFAULT_DATE_TIME_STRING_FORMATTER by lazy {
     DateTimeFormatter.ISO_LOCAL_DATE_TIME.withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
 }
-private val SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER by lazy {
+internal val SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER by lazy {
     DateTimeFormatter.ofPattern(
         "yyyy-MM-dd HH:mm:ss.SSS",
         Locale.ROOT
     ).withZone(ZoneId.systemDefault())
 }
 
-private val ORACLE_TIME_STRING_FORMATTER by lazy {
+internal val ORACLE_TIME_STRING_FORMATTER by lazy {
     DateTimeFormatter.ofPattern(
         "1900-01-01 HH:mm:ss",
         Locale.ROOT
     ).withZone(ZoneOffset.UTC)
 }
 
-private val DEFAULT_TIME_STRING_FORMATTER by lazy {
+internal val DEFAULT_TIME_STRING_FORMATTER by lazy {
     DateTimeFormatter.ISO_LOCAL_TIME.withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
 }
 
-private fun formatterForDateString(date: String) = dateTimeWithFractionFormat(date.substringAfterLast('.', "").length)
-private fun dateTimeWithFractionFormat(fraction: Int): DateTimeFormatter {
+internal fun formatterForDateString(date: String) = dateTimeWithFractionFormat(date.substringAfterLast('.', "").length)
+internal fun dateTimeWithFractionFormat(fraction: Int): DateTimeFormatter {
     val baseFormat = "yyyy-MM-d HH:mm:ss"
     val newFormat = if (fraction in 1..9) {
         (1..fraction).joinToString(prefix = "$baseFormat.", separator = "") { "S" }
@@ -47,7 +47,7 @@ private fun dateTimeWithFractionFormat(fraction: Int): DateTimeFormatter {
     return DateTimeFormatter.ofPattern(newFormat).withLocale(Locale.ROOT).withZone(ZoneId.systemDefault())
 }
 
-private val LocalDate.millis get() = atStartOfDay(ZoneId.systemDefault()).toEpochSecond() * 1000
+internal val LocalDate.millis get() = atStartOfDay(ZoneId.systemDefault()).toEpochSecond() * 1000
 
 class JavaLocalDateColumnType : ColumnType(), IDateColumnType {
     override val hasTimePart: Boolean = false
