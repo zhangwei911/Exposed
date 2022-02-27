@@ -22,7 +22,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
             .groupBy(
                 keySelector = { it.first },
                 valueTransform = { it.second }
-            ).filterValues { it.size > 1 }.mapValues { it.value.single() }
+            ).filterValues { it.size == 1 }.mapValues { it.value.single() }
     }
 
     override fun <T : Any?> unwrap(iface: Class<T>?): T = TODO()
@@ -46,7 +46,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
     }
 
     private fun <T : Any> get(columnIndex: Int) = currentRow?.get(columnIndex - 1) as? T
-    private fun <T : Any> get(columnName: String) = columnsMapping[columnName]?.let { currentRow?.get(it) } as? T
+    private fun <T : Any> get(columnName: String) = columnsMapping[columnName]?.let { currentRow?.get(it - 1) } as? T
 
     override fun wasNull(): Boolean {
         TODO("not implemented")
@@ -697,9 +697,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
         TODO("not implemented")
     }
 
-    override fun isClosed(): Boolean {
-        TODO("not implemented")
-    }
+    override fun isClosed(): Boolean = true
 
     override fun updateNString(columnIndex: Int, nString: String?) {
         TODO("not implemented")

@@ -33,11 +33,11 @@ import kotlin.test.assertNull
 class EntityReferenceCacheTest : DatabaseTestsBase() {
 
     private val db by lazy {
-        TestDB.H2.connect()
+        TestDB.Jdbc.H2.connect()
     }
 
     private val dbWithCache by lazy {
-        TestDB.H2.connect {
+        TestDB.Jdbc.H2.connect {
             keepLoadedReferencesOutOfTransaction = true
         }
     }

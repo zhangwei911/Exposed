@@ -17,7 +17,9 @@ object Versions {
     const val postgreNG = "0.8.6"
     const val sqlLite3 = "3.36.0.1"
     const val sqlserver = "8.4.1.jre8"
-    const val r2dbcVersion = "0.8.4.RELEASE"
+    const val r2dbcSPI = "0.9.0.RELEASE"
+    const val r2dbcH2 = "0.9.0.RELEASE"
+    const val r2dbcPostgre = "0.9.0.RELEASE"
 
     /** Spring **/
     const val springFramework = "5.3.7"

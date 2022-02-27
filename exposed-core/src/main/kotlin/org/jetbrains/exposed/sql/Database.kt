@@ -9,10 +9,9 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.vendors.*
 import java.math.BigDecimal
 import java.sql.Connection
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
-class Database private constructor(
+class Database(
     private val resolvedVendor: String? = null,
     val config: DatabaseConfig,
     val connector: () -> ExposedConnection<*>
@@ -109,96 +108,6 @@ class Database private constructor(
             dialectMapping[prefix] = dialect
         }
 
-        private fun doConnect(
-            explicitVendor: String?,
-            config: DatabaseConfig?,
-            getNewConnection: () -> Connection,
-            setupConnection: (Connection) -> Unit = {},
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
-        ): Database {
-            return Database(explicitVendor, config ?: DatabaseConfig.invoke()) {
-                connectionInstanceImpl(getNewConnection().apply { setupConnection(this) })
-            }.apply {
-                TransactionManager.registerManager(this, manager(this))
-            }
-        }
-
-        fun connect(
-            datasource: DataSource,
-            setupConnection: (Connection) -> Unit = {},
-            databaseConfig: DatabaseConfig? = null,
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
-        ): Database {
-            return doConnect(
-                explicitVendor = null,
-                config = databaseConfig,
-                getNewConnection = { datasource.connection!! },
-                setupConnection = setupConnection,
-                manager = manager
-            )
-        }
-
-        @Deprecated(
-            level = DeprecationLevel.ERROR,
-            replaceWith = ReplaceWith("connectPool(datasource, setupConnection, manager)"),
-            message = "Use connectPool instead"
-        )
-        fun connect(
-            datasource: ConnectionPoolDataSource,
-            setupConnection: (Connection) -> Unit = {},
-            databaseConfig: DatabaseConfig? = null,
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
-        ): Database {
-            return doConnect(
-                explicitVendor = null,
-                config = databaseConfig,
-                getNewConnection = { datasource.pooledConnection.connection!! },
-                setupConnection = setupConnection,
-                manager = manager
-            )
-        }
-
-        fun connectPool(
-            datasource: ConnectionPoolDataSource,
-            setupConnection: (Connection) -> Unit = {},
-            databaseConfig: DatabaseConfig? = null,
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
-        ): Database {
-            return doConnect(
-                explicitVendor = null,
-                config = databaseConfig,
-                getNewConnection = { datasource.pooledConnection.connection!! },
-                setupConnection = setupConnection,
-                manager = manager
-            )
-        }
-
-        fun connect(
-            getNewConnection: () -> Connection,
-            databaseConfig: DatabaseConfig? = null,
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
-        ): Database {
-            return doConnect(
-                explicitVendor = null,
-                config = databaseConfig,
-                getNewConnection = getNewConnection,
-                manager = manager)
-        }
-
-        fun connect(
-            url: String,
-            driver: String = getDriver(url),
-            user: String = "",
-            password: String = "",
-            setupConnection: (Connection) -> Unit = {},
-            databaseConfig: DatabaseConfig? = null,
-            manager: (Database) -> TransactionManager = { ThreadLocalTransactionManager(it) }
-        ): Database {
-            Class.forName(driver).newInstance()
-            val dialectName = getDialectName(url) ?: error("Can't resolve dialect for connection: $url")
-            return doConnect(dialectName, databaseConfig, { DriverManager.getConnection(url, user, password) }, setupConnection, manager)
-        }
-
         fun getDefaultIsolationLevel(db: Database): Int =
             when (db.dialect) {
                 is SQLiteDialect -> Connection.TRANSACTION_SERIALIZABLE
@@ -207,7 +116,7 @@ class Database private constructor(
                 else -> DEFAULT_ISOLATION_LEVEL
             }
 
-        private fun getDriver(url: String) = driverMapping.entries.firstOrNull { (prefix, _) ->
+        fun getDriver(url: String) = driverMapping.entries.firstOrNull { (prefix, _) ->
             url.startsWith(prefix)
         }?.value ?: error("Database driver not found for $url")
 

@@ -123,7 +123,7 @@ class SchemaTests : DatabaseTestsBase() {
     fun `test default schema`() {
         val schema = Schema("schema")
 
-        TestDB.H2.connect()
+        TestDB.Jdbc.H2.connect()
 
         transaction {
             connection.metadata {
@@ -135,7 +135,7 @@ class SchemaTests : DatabaseTestsBase() {
             SchemaUtils.createSchema(schema)
         }
 
-        val db = TestDB.H2.connect {
+        val db = TestDB.Jdbc.H2.connect {
             defaultSchema = schema
         }
 

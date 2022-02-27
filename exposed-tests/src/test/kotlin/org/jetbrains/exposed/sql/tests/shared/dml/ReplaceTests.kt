@@ -12,7 +12,7 @@ import java.util.*
 
 class ReplaceTests : DatabaseTestsBase() {
 
-    private val notSupportsReplace = listOf(TestDB.ORACLE, TestDB.SQLSERVER)
+    private val notSupportsReplace = listOf(TestDB.Jdbc.ORACLE, TestDB.Jdbc.SQLSERVER)
 
     // GitHub issue #98: Parameter index out of range when using Table.replace
     @Test

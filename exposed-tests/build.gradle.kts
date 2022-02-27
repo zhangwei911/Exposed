@@ -34,9 +34,11 @@ dependencies {
     implementation("org.testcontainers", "mysql", Versions.testContainers)
     implementation("com.opentable.components", "otj-pg-embedded", Versions.otjPgEmbedded)
 
-    implementation("com.h2database", "h2", Versions.h2)
-    implementation("io.r2dbc", "r2dbc-postgresql", Versions.r2dbcVersion)
-    implementation("io.r2dbc", "r2dbc-h2", Versions.r2dbcVersion)
+//    testImplementation("com.h2database", "h2", Versions.h2)
+    compileOnly("org.postgresql", "r2dbc-postgresql", Versions.r2dbcPostgre)
+    compileOnly("io.r2dbc", "r2dbc-h2", Versions.r2dbcH2) {
+        exclude("com.h2database", "h2")
+    }
 
     setupTestDriverDependencies(dialect) { group, artifactId, version ->
         testImplementation(group, artifactId, version)

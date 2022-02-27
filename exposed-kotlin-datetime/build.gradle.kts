@@ -27,7 +27,9 @@ dependencies {
     testImplementation("com.opentable.components", "otj-pg-embedded", Versions.otjPgEmbedded)
 
     setupTestDriverDependencies(dialect) { group, artifactId, version ->
-        testImplementation(group, artifactId, version)
+        testImplementation(group, artifactId, version) {
+            exclude("com.h2database", "h2")
+        }
     }
 }
 

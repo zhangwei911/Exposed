@@ -86,25 +86,37 @@ class RdbcConnectionImpl(
     }
 
     override var transactionIsolation: Int
-        get() = withConnection { it.transactionIsolationLevel?.asInt() ?: -1 }
+        get() = withConnection { it.transactionIsolationLevel.asInt() }
         set(value) {
             withConnection { it.setTransactionIsolationLevel(value.asIsolationLevel()).awaitFirstOrNull() }
         }
 
+    private fun postProcessSQL(sql: String): String {
+        val preparedStatementParams = sql.count { it == '?' }
+        if (preparedStatementParams > 0) {
+            var patchedSQL = sql
+            (1..preparedStatementParams).forEach {
+                patchedSQL = patchedSQL.replaceFirst("?", "\$$it")
+            }
+            return patchedSQL
+        }
+        return sql
+    }
+
     override fun prepareStatement(sql: String, returnKeys: Boolean): PreparedStatementApi {
         return withConnection {
             val statement = if (returnKeys) {
-                it.createStatement(sql).returnGeneratedValues()
+                it.createStatement(postProcessSQL(sql)).returnGeneratedValues()
             } else {
-                it.createStatement(sql)
+                it.createStatement(postProcessSQL(sql))
             }
-            RdbcPreparedStatementImpl(statement)
+            RdbcPreparedStatementImpl(statement, returnKeys)
         }
     }
 
     override fun prepareStatement(sql: String, columns: Array<String>): PreparedStatementApi {
         return withConnection {
-            RdbcPreparedStatementImpl(it.createStatement(sql).returnGeneratedValues(*columns))
+            RdbcPreparedStatementImpl(it.createStatement(postProcessSQL(sql)).returnGeneratedValues(*columns), returnValues = true)
         }
     }
 

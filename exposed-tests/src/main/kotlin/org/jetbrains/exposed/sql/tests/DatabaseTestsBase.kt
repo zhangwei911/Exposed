@@ -4,12 +4,16 @@ import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
 import io.r2dbc.h2.H2ConnectionOption
-import io.r2dbc.postgresql.PostgresqlConnectionConfiguration
-import io.r2dbc.postgresql.PostgresqlConnectionFactory
+import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
+import io.r2dbc.spi.ConnectionFactoryOptions
+import io.r2dbc.spi.ConnectionFactoryOptions.DATABASE
+import io.r2dbc.spi.ConnectionFactoryOptions.HOST
+import io.r2dbc.spi.ConnectionFactoryOptions.PASSWORD
+import io.r2dbc.spi.ConnectionFactoryOptions.PORT
+import io.r2dbc.spi.ConnectionFactoryOptions.USER
 import org.jetbrains.exposed.jdbc.connect
-import org.jetbrains.exposed.rdbc.connect
-import org.h2.engine.Mode
+import org.jetbrains.exposed.rdbc.connect as rdbcConnect
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
 import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
@@ -25,12 +29,13 @@ import kotlin.reflect.KVisibility
 sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished: () -> Unit = {}) {
     lateinit var db: Database
 
-    protected abstract fun initDatabase(): Database
+    protected abstract fun initDatabase(config: DatabaseConfig): Database
 
     open val name: String get() = this::class.simpleName!!
 
-    fun connect(): Database {
-        db = initDatabase()
+    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
+        val config = DatabaseConfig(configure)
+        db = initDatabase(config)
         return db
     }
 
@@ -42,19 +47,15 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         beforeConnection: () -> Unit = {},
         afterTestFinished: () -> Unit = {}
     ) : TestDB(beforeConnection, afterTestFinished) {
-        override fun initDatabase() = Database.connect(connection(), user = user, password = pass, driver = driver)
 
-        object H2 : Jdbc({ "jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver") {
-            override fun initDatabase(): Database = super.initDatabase().apply { transactionManager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED }
-        }
+        override fun initDatabase(config: DatabaseConfig) =
+            Database.connect(connection(), user = user, password = pass, driver = driver, databaseConfig = config)
 
-        object H2_MYSQL : Jdbc({ "jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1" }, "org.h2.Driver") {
-            override fun initDatabase(): Database = super.initDatabase().apply { transactionManager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED }
-        }
+        object H2 : Jdbc({ "jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
-        internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver") {
-            override fun initDatabase(): Database = super.initDatabase().apply { transactionManager.defaultIsolationLevel = Connection.TRANSACTION_READ_COMMITTED }
-        }
+        object H2_MYSQL : Jdbc({ "jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1" }, "org.h2.Driver")
+
+        internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
         object SQLITE : Jdbc({ "jdbc:sqlite:file:test?mode=memory&cache=shared" }, "org.sqlite.JDBC")
 
@@ -150,13 +151,14 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
 
         override val name: String = "RDBC.${super.name}"
 
-        override fun initDatabase(): Database {
+        override fun initDatabase(config: DatabaseConfig): Database {
             val jdbcDb = jdbc.connect()
-            return Database.connect(
+            return Database.rdbcConnect(
                 connection = connectionFactory.create(),
                 jdbcConnection = {
                     (jdbcDb.connector() as JdbcConnectionImpl).connection
-                }
+                },
+                databaseConfig = config
             )
         }
 
@@ -172,21 +174,17 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         )
 
         object POSTGRESQL : Rdbc(
-            connectionFactory = PostgresqlConnectionFactory(
-                PostgresqlConnectionConfiguration.builder()
-                    .host("localhost")
-                    .port(12346)
-                    .database("template1")
-                    .username(Jdbc.POSTGRESQL.user)
-                    .password(Jdbc.POSTGRESQL.pass)
+            connectionFactory = ConnectionFactories.get(
+                ConnectionFactoryOptions.builder()
+                    .option(HOST, "localhost")
+                    .option(PORT, 12346)
+                    .option(DATABASE, "template1")
+                    .option(USER, Jdbc.POSTGRESQL.user)
+                    .option(PASSWORD, Jdbc.POSTGRESQL.pass)
                     .build()
             ),
             jdbc = Jdbc.POSTGRESQL
         )
-    }
-    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
-        val config = DatabaseConfig(configure)
-        return Database.connect(connection(), databaseConfig = config, user = user, password = pass, driver = driver)
     }
 
     companion object {

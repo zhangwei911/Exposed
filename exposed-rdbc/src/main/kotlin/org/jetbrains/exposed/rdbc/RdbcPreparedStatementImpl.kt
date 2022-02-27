@@ -1,16 +1,14 @@
 package org.jetbrains.exposed.rdbc
 
 import io.r2dbc.spi.Statement
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.reactive.*
 import kotlinx.coroutines.runBlocking
-import org.jetbrains.exposed.sql.IColumnType
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
 import java.io.InputStream
 import java.sql.ResultSet
-import kotlin.coroutines.coroutineContext
 
-class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi {
+class RdbcPreparedStatementImpl(val statement: Statement, private val returnValues: Boolean) : PreparedStatementApi {
 
     private var executedResultSet: ResultSetEmulator? = null
 
@@ -23,7 +21,6 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
     override fun executeQuery(): ResultSet {
         return runBlocking {
             executeAndPrepareResultSet()
-            executedResultSet!!
         }
     }
 
@@ -33,13 +30,14 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
 
     private suspend fun executeAndPrepareResultSet(): ResultSetEmulator {
         val resultSet = arrayListOf<List<Pair<String, Any?>>>()
-        val executedStatement = statement.execute().awaitFirst()
-        executedStatement.map { row, metadata ->
-            metadata.columnMetadatas.mapIndexed { index, columnMetadata ->
-                columnMetadata.name to row[index]
+        statement.execute().collect {
+            it.map { row, metadata ->
+                metadata.columnMetadatas.mapIndexed { index, columnMetadata ->
+                    columnMetadata.name to row[index]
+                }
+            }.collect {
+                resultSet.add(it)
             }
-        }.collect {
-            resultSet.add(it)
         }
         return ResultSetEmulator(resultSet).also {
             executedResultSet = it
@@ -47,14 +45,24 @@ class RdbcPreparedStatementImpl(val statement: Statement) : PreparedStatementApi
     }
 
     override fun executeUpdate(): Int = runBlocking {
-        executeAndReturnUpdatedRow()
+        if (returnValues) {
+            executeAndPrepareResultSet().rows.size
+        } else {
+            executeAndReturnUpdatedRow()
+        }
     }
 
     override val resultSet: ResultSet?
         get() = executedResultSet
 
     override fun setNull(index: Int, columnType: IColumnType) {
-        statement.bindNull(index - 1, String::class.java)
+        val encodeType = when (columnType) {
+            is IntegerColumnType, is UIntegerColumnType, is LongColumnType, is ULongColumnType,
+            is ShortColumnType, is UShortColumnType, is ByteColumnType, is UByteColumnType,
+            -> java.lang.Long::class.java
+            else -> String::class.java
+        }
+        statement.bindNull(index - 1, encodeType)
     }
 
     override fun setInputStream(index: Int, inputStream: InputStream) {

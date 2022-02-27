@@ -31,7 +31,7 @@ class EntityCacheTests : DatabaseTestsBase() {
     fun testGlobalEntityCacheLimit() {
         val entitiesCount = 25
         val cacheSize = 10
-        val db = TestDB.H2.connect {
+        val db = TestDB.Jdbc.H2.connect {
             maxEntitiesToStoreInCachePerEntity = cacheSize
         }
 
@@ -59,8 +59,8 @@ class EntityCacheTests : DatabaseTestsBase() {
     @Test
     fun testGlobalEntityCacheLimitZero() {
         val entitiesCount = 25
-        val db = TestDB.H2.connect()
-        val dbNoCache = TestDB.H2.connect {
+        val db = TestDB.Jdbc.H2.connect()
+        val dbNoCache = TestDB.Jdbc.H2.connect {
             maxEntitiesToStoreInCachePerEntity = 10
         }
 

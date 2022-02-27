@@ -79,7 +79,7 @@ class UnionTests : DatabaseTestsBase() {
 
     @Test
     fun `test intersection of three queries`() {
-        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.MYSQL)) { _, users, _ ->
             val usersQuery = users.selectAll()
             val sergeyQuery = users.select { users.id eq "sergey" }
             val expectedUsers = usersQuery.map { it[users.id] } + "sergey"
@@ -101,7 +101,7 @@ class UnionTests : DatabaseTestsBase() {
 
     @Test
     fun `test except of two queries`() {
-        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.MYSQL)) { _, users, _ ->
             val usersQuery = users.selectAll()
             val expectedUsers = usersQuery.map { it[users.id] } - "sergey"
             val sergeyQuery = users.select { users.id eq "sergey" }
@@ -114,7 +114,7 @@ class UnionTests : DatabaseTestsBase() {
 
     @Test
     fun `test except of three queries`() {
-        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.MYSQL)) { _, users, _ ->
             val usersQuery = users.selectAll()
             val expectedUsers = usersQuery.map { it[users.id] } - "sergey"
             val sergeyQuery = users.select { users.id eq "sergey" }
@@ -127,7 +127,7 @@ class UnionTests : DatabaseTestsBase() {
 
     @Test
     fun `test except of two excepts queries`() {
-        withCitiesAndUsers(listOf(TestDB.MYSQL)) { _, users, _ ->
+        withCitiesAndUsers(listOf(TestDB.Jdbc.MYSQL)) { _, users, _ ->
             val usersQuery = users.selectAll()
             val expectedUsers = usersQuery.map { it[users.id] } - "sergey" - "andrey"
             val sergeyQuery = users.select { users.id eq "sergey" }

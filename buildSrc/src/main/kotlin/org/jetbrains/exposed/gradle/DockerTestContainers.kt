@@ -59,8 +59,8 @@ fun setupTestDriverDependencies(dialect: String, testImplementationSetup: (group
             testImplementationSetup("mysql", "mysql-connector-java", Versions.mysql51)
             testImplementationSetup("org.postgresql", "postgresql", Versions.postgre)
             testImplementationSetup("com.impossibl.pgjdbc-ng", "pgjdbc-ng", Versions.postgreNG)
-            testImplementationSetup("io.r2dbc", "r2dbc-postgresql", Versions.r2dbcVersion)
-            testImplementationSetup("io.r2dbc", "r2dbc-h2", Versions.r2dbcVersion)
+            testImplementationSetup("org.postgresql", "r2dbc-postgresql", Versions.r2dbcPostgre)
+            testImplementationSetup("io.r2dbc", "r2dbc-h2", Versions.r2dbcH2)
         }
     }
 }
