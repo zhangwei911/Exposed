@@ -12,7 +12,7 @@ abstract class Op<T> : Expression<T>() {
         /** Builds a new operator using provided [op]. */
         inline fun <T> build(op: SqlExpressionBuilder.() -> Op<T>): Op<T> = SqlExpressionBuilder.op()
 
-        fun <T> nullOp() : Op<T> = NULL as Op<T>
+        fun <T> nullOp(): Op<T> = NULL as Op<T>
     }
 
     internal interface OpBoolean
@@ -68,7 +68,7 @@ interface ComplexExpression
  * @see AndOp
  * @see OrOp
  */
-abstract class CompoundBooleanOp<T : CompoundBooleanOp<T>>(
+sealed class CompoundBooleanOp(
     private val operator: String,
     internal val expressions: List<Expression<Boolean>>
 ) : Op<Boolean>(), ComplexExpression, Op.OpBoolean {
@@ -80,12 +80,12 @@ abstract class CompoundBooleanOp<T : CompoundBooleanOp<T>>(
 /**
  * Represents a logical operator that performs an `and` operation between all the specified [expressions].
  */
-class AndOp(expressions: List<Expression<Boolean>>) : CompoundBooleanOp<AndOp>(" AND ", expressions)
+class AndOp(expressions: List<Expression<Boolean>>) : CompoundBooleanOp(" AND ", expressions)
 
 /**
  * Represents a logical operator that performs an `or` operation between all the specified [expressions].
  */
-class OrOp(expressions: List<Expression<Boolean>>) : CompoundBooleanOp<AndOp>(" OR ", expressions)
+class OrOp(expressions: List<Expression<Boolean>>) : CompoundBooleanOp(" OR ", expressions)
 
 /** Returns the inverse of this boolean expression. */
 fun not(op: Expression<Boolean>): Op<Boolean> = NotOp(op)
@@ -299,6 +299,11 @@ class ModOp<T : Number?, S : Number?>(
     }
 }
 
+
+// https://github.com/h2database/h2database/issues/3253
+private fun <T> ExpressionWithColumnType<T>.castToExpressionTypeForH2BitWiseIps(e: Expression<out T>) =
+    if (e !is Column<*> && e !is LiteralOp<*>) e.castTo(columnType) else e
+
 /**
  * Represents an SQL operator that performs a bitwise `and` on [expr1] and [expr2].
  */
@@ -311,8 +316,14 @@ class AndBitOp<T, S : T>(
     override val columnType: IColumnType
 ) : ExpressionWithColumnType<T>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder {
-        when (currentDialectIfAvailable) {
-            is OracleDialect, is H2Dialect -> append("BITAND(", expr1, ", ", expr2, ")")
+        when (val dialect = currentDialectIfAvailable) {
+            is OracleDialect -> append("BITAND(", expr1, ", ", expr2, ")")
+            is H2Dialect -> {
+                when (dialect.isSecondVersion) {
+                    false -> append("BITAND(", expr1, ", ", expr2, ")")
+                    true -> append("BITAND(", castToExpressionTypeForH2BitWiseIps(expr1), ", ", castToExpressionTypeForH2BitWiseIps(expr2), ")")
+                }
+            }
             else -> append('(', expr1, " & ", expr2, ')')
         }
     }
@@ -330,10 +341,15 @@ class OrBitOp<T, S : T>(
     override val columnType: IColumnType
 ) : ExpressionWithColumnType<T>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder {
-        when (currentDialectIfAvailable) {
+        when (val dialect = currentDialectIfAvailable) {
             // Oracle doesn't natively support bitwise OR, thus emulate it with 'and'
             is OracleDialect -> append("(", expr1, "+", expr2, "-", AndBitOp(expr1, expr2, columnType), ")")
-            is H2Dialect -> append("BITOR(", expr1, ", ", expr2, ")")
+            is H2Dialect -> {
+                when (dialect.isSecondVersion) {
+                    false -> append("BITOR(", expr1, ", ", expr2, ")")
+                    true -> append("BITOR(", castToExpressionTypeForH2BitWiseIps(expr1), ", ", castToExpressionTypeForH2BitWiseIps(expr2), ")")
+                }
+            }
             else -> append('(', expr1, " | ", expr2, ')')
         }
     }
@@ -351,13 +367,18 @@ class XorBitOp<T, S : T>(
     override val columnType: IColumnType
 ) : ExpressionWithColumnType<T>() {
     override fun toQueryBuilder(queryBuilder: QueryBuilder): Unit = queryBuilder {
-        when (currentDialectIfAvailable) {
+        when (val dialect = currentDialectIfAvailable) {
             // Oracle and SQLite don't natively support bitwise XOR, thus emulate it with 'or' and 'and'
             is OracleDialect, is SQLiteDialect -> append(
                 "(", OrBitOp(expr1, expr2, columnType), "-", AndBitOp(expr1, expr2, columnType), ")"
             )
             is PostgreSQLDialect -> append('(', expr1, " # ", expr2, ')')
-            is H2Dialect -> append("BITXOR(", expr1, ", ", expr2, ")")
+            is H2Dialect -> {
+                when (dialect.isSecondVersion) {
+                    false -> append("BITXOR(", expr1, ", ", expr2, ")")
+                    true -> append("BITXOR(", castToExpressionTypeForH2BitWiseIps(expr1), ", ", castToExpressionTypeForH2BitWiseIps(expr2), ")")
+                }
+            }
             else -> append('(', expr1, " ^ ", expr2, ')')
         }
     }
@@ -390,7 +411,6 @@ class RegexpOp<T : String?>(
         currentDialect.functionProvider.regexp(expr1, expr2, caseSensitive, queryBuilder)
     }
 }
-
 
 // Subquery Expressions
 

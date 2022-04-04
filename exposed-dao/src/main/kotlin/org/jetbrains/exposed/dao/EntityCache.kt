@@ -13,6 +13,8 @@ val Transaction.entityCache: EntityCache by transactionScope { EntityCache(this)
 @Suppress("UNCHECKED_CAST")
 class EntityCache(private val transaction: Transaction) {
     private var flushingEntities = false
+    private var initializingEntities: LinkedIdentityHashSet<Entity<*>> = LinkedIdentityHashSet()
+    internal val pendingInitializationLambdas = IdentityHashMap<Entity<*>, MutableList<(Entity<*>)->Unit>>()
     val data = LinkedHashMap<IdTable<*>, MutableMap<Any, Entity<*>>>()
     internal val inserts = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
     private val updates = LinkedHashMap<IdTable<*>, MutableSet<Entity<*>>>()
@@ -56,7 +58,9 @@ class EntityCache(private val transaction: Transaction) {
     }
 
     fun <ID : Comparable<ID>, T : Entity<ID>> find(f: EntityClass<ID, T>, id: EntityID<ID>): T? =
-        getMap(f)[id.value] as T? ?: inserts[f.table]?.firstOrNull { it.id == id } as? T
+        getMap(f)[id.value] as T?
+            ?: inserts[f.table]?.firstOrNull { it.id == id } as? T
+            ?: initializingEntities.firstOrNull { it.klass == f && it.id == id } as? T
 
     fun <ID : Comparable<ID>, T : Entity<ID>> findAll(f: EntityClass<ID, T>): Collection<T> = getMap(f).values as Collection<T>
 
@@ -71,6 +75,19 @@ class EntityCache(private val transaction: Transaction) {
     fun <ID : Comparable<ID>, T : Entity<ID>> remove(table: IdTable<ID>, o: T) {
         getMap(table).remove(o.id.value)
     }
+
+    internal fun addNotInitializedEntityToQueue(entity: Entity<*>) {
+        require(initializingEntities.add(entity)) { "Entity ${entity::class.simpleName} already in initialization process" }
+    }
+
+    internal fun finishEntityInitialization(entity: Entity<*>) {
+        require(initializingEntities.lastOrNull() == entity) {
+            "Can't finish initialization for entity ${entity::class.simpleName} - the initialization order is broken"
+        }
+        initializingEntities.remove(entity)
+    }
+
+    internal fun isEntityInInitializationState(entity: Entity<*>) = entity in initializingEntities
 
     fun <ID : Comparable<ID>, T : Entity<ID>> scheduleInsert(f: EntityClass<ID, T>, o: T) {
         inserts.getOrPut(f.table) { LinkedIdentityHashSet() }.add(o as Entity<*>)
@@ -154,40 +171,40 @@ class EntityCache(private val transaction: Transaction) {
     }
 
     internal fun flushInserts(table: IdTable<*>) {
-        inserts.remove(table)?.let {
-            var toFlush: List<Entity<*>> = it.toList()
-            do {
-                val partition = toFlush.partition {
-                    it.writeValues.none {
-                        val (key, value) = it
-                        key.referee == table.id && value is EntityID<*> && value._value == null
+        var toFlush: List<Entity<*>> = inserts.remove(table)?.toList().orEmpty()
+        while (toFlush.isNotEmpty()) {
+            val partition = toFlush.partition {
+                it.writeValues.none {
+                    val (key, value) = it
+                    key.referee == table.id && value is EntityID<*> && value._value == null
+                }
+            }
+            toFlush = partition.first
+            val ids = executeAsPartOfEntityLifecycle {
+                table.batchInsert(toFlush) { entry ->
+                    for ((c, v) in entry.writeValues) {
+                        this[c] = v
                     }
                 }
-                toFlush = partition.first
-                val ids = executeAsPartOfEntityLifecycle {
-                    table.batchInsert(toFlush) { entry ->
-                        for ((c, v) in entry.writeValues) {
-                            this[c] = v
-                        }
-                    }
+            }
+
+            for ((entry, genValues) in toFlush.zip(ids)) {
+                if (entry.id._value == null) {
+                    val id = genValues[table.id]
+                    entry.id._value = id._value
+                    entry.writeValues[entry.klass.table.id as Column<Any?>] = id
+                }
+                genValues.fieldIndex.keys.forEach { key ->
+                    entry.writeValues[key as Column<Any?>] = genValues[key]
                 }
 
-                for ((entry, genValues) in toFlush.zip(ids)) {
-                    if (entry.id._value == null) {
-                        val id = genValues[table.id]
-                        entry.id._value = id._value
-                        entry.writeValues[entry.klass.table.id as Column<Any?>] = id
-                    }
-                    genValues.fieldIndex.keys.forEach { key ->
-                        entry.writeValues[key as Column<Any?>] = genValues[key]
-                    }
+                entry.storeWrittenValues()
+                store(entry)
+                transaction.registerChange(entry.klass, entry.id, EntityChangeType.Created)
+                pendingInitializationLambdas[entry]?.forEach { it(entry) }
+            }
 
-                    entry.storeWrittenValues()
-                    store(entry)
-                    transaction.registerChange(entry.klass, entry.id, EntityChangeType.Created)
-                }
-                toFlush = partition.second
-            } while (toFlush.isNotEmpty())
+            toFlush = partition.second
         }
         transaction.alertSubscribers()
     }

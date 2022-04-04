@@ -14,7 +14,7 @@ private val comparator: Comparator<Column<*>> = compareBy({ it.table.tableName }
  * Represents a column.
  */
 class Column<T>(
-    /** Table where the columns is declared. */
+    /** Table where the columns are declared. */
     val table: Table,
     /** Name of the column. */
     val name: String,
@@ -25,7 +25,7 @@ class Column<T>(
 
     /** Returns the column that this column references. */
     val referee: Column<*>?
-        get() = foreignKey?.target
+        get() = foreignKey?.targetOf(this)
 
     /** Returns the column that this column references, casted as a column of type [S], or `null` if the cast fails. */
     @Suppress("UNCHECKED_CAST")
@@ -66,10 +66,9 @@ class Column<T>(
         return listOfNotNull("$alterTablePrefix $columnDefinition", addConstr)
     }
 
-    fun modifyStatements(nullabilityChanged: Boolean, autoIncrementChanged: Boolean, defaultChanged: Boolean): List<String> =
-        currentDialect.modifyColumn(this, nullabilityChanged, autoIncrementChanged, defaultChanged)
+    fun modifyStatements(columnDiff: ColumnDiff): List<String> = currentDialect.modifyColumn(this, columnDiff)
 
-    override fun modifyStatement(): List<String> = currentDialect.modifyColumn(this, true, true, true)
+    override fun modifyStatement(): List<String> = currentDialect.modifyColumn(this, ColumnDiff.AllChanged)
 
     override fun dropStatement(): List<String> {
         val tr = TransactionManager.current()
@@ -123,6 +122,21 @@ class Column<T>(
             append(" PRIMARY KEY")
         }
     }
+
+
+    /**
+     * Returns a copy of this column, but with the given column type.
+     */
+    fun withColumnType(columnType: IColumnType) = Column<T>(
+        table = this.table,
+        name = this.name,
+        columnType = columnType
+    ).also{
+        it.foreignKey = this.foreignKey
+        it.defaultValueFun = this.defaultValueFun
+        it.dbDefaultValue = this.dbDefaultValue
+    }
+
 
     override fun compareTo(other: Column<*>): Int = comparator.compare(this, other)
 

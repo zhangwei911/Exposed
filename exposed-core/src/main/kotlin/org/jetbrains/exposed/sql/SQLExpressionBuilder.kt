@@ -148,16 +148,13 @@ interface ISqlExpressionBuilder {
     }
 
     /** Checks if this expression is equals to some [other] expression. */
-    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.eq(other: Expression<in S2>): Op<Boolean> = when {
-        other.equals(Op.NULL) -> isNull()
+    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.eq(other: Expression<in S2>): Op<Boolean> = when (other as Expression<*>) {
+        is Op.NULL -> isNull()
         else -> EqOp(this, other)
     }
 
     /** Checks if this expression is equals to some [t] value. */
-    infix fun <T : Comparable<T>, E : EntityID<T>?> ExpressionWithColumnType<E>.eq(t: T?): Op<Boolean> {
-        if (t == null) {
-            return isNull()
-        }
+    infix fun <T : Comparable<T>, E : EntityID<T>?> ExpressionWithColumnType<E>.eq(t: T): Op<Boolean> {
         @Suppress("UNCHECKED_CAST")
         val table = (columnType as EntityIDColumnType<*>).idColumn.table as IdTable<T>
         val entityID = EntityID(t, table)
@@ -168,13 +165,18 @@ interface ISqlExpressionBuilder {
     infix fun <T> ExpressionWithColumnType<T>.neq(other: T): Op<Boolean> = if (other == null) isNotNull() else NeqOp(this, wrap(other))
 
     /** Checks if this expression is not equals to some [other] expression. */
-    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.neq(other: Expression<in S2>): Op<Boolean> = when {
-        other.equals(Op.NULL) -> isNotNull()
+    infix fun <T, S1 : T?, S2 : T?> Expression<in S1>.neq(other: Expression<in S2>): Op<Boolean> = when (other as Expression<*>) {
+        is Op.NULL -> isNotNull()
         else -> NeqOp(this, other)
     }
 
     /** Checks if this expression is not equals to some [t] value. */
-    infix fun <T : Comparable<T>> ExpressionWithColumnType<EntityID<T>>.neq(t: T?): Op<Boolean> = if (t == null) isNotNull() else NeqOp(this, wrap(t))
+    infix fun <T : Comparable<T>, E : EntityID<T>?> ExpressionWithColumnType<E>.neq(t: T): Op<Boolean> {
+        @Suppress("UNCHECKED_CAST")
+        val table = (columnType as EntityIDColumnType<*>).idColumn.table as IdTable<T>
+        val entityID = EntityID(t, table)
+        return NeqOp(this, wrap(entityID))
+    }
 
     /** Checks if this expression is less than some [t] value. */
     infix fun <T : Comparable<T>, S : T?> ExpressionWithColumnType<in S>.less(t: T): LessOp = LessOp(this, wrap(t))

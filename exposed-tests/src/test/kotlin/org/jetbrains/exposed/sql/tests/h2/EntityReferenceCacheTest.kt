@@ -43,6 +43,7 @@ class EntityReferenceCacheTest : DatabaseTestsBase() {
     }
 
     private fun executeOnH2(vararg tables: Table, body: () -> Unit) {
+        Assume.assumeTrue(TestDB.H2 in TestDB.enabledInTests())
         var testWasStarted = false
         transaction(db) {
             SchemaUtils.create(*tables)
@@ -339,7 +340,7 @@ class EntityReferenceCacheTest : DatabaseTestsBase() {
             assertEquals(orderItem1, order1.items.single())
             assertNotNull(entityCache.getReferrers<OrderItem>(order1.id, OrderItems.order))
 
-            val address1 = Address.new {
+            Address.new {
                 customer = customer1
                 street = "Test"
             }
@@ -386,7 +387,7 @@ class EntityReferenceCacheTest : DatabaseTestsBase() {
                 sku = "Test2"
             }
 
-            val address1 = Address.new {
+            Address.new {
                 customer = customer1
                 street = "Test"
             }
@@ -456,5 +457,4 @@ class EntityReferenceCacheTest : DatabaseTestsBase() {
             assertNull(entityCache.getReferrers<Address>(customer1.id, CustomerRoles.customer))
         }
     }
-
 }

@@ -19,25 +19,30 @@ import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
 import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
+import org.junit.Assume
+import org.junit.AssumptionViolatedException
 import org.testcontainers.containers.MySQLContainer
 import java.sql.Connection
 import java.util.*
 import kotlin.concurrent.thread
 import kotlin.reflect.KClass
+import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KVisibility
 
-sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished: () -> Unit = {}) {
-    lateinit var db: Database
-
+sealed class TestDB(
+    val beforeConnection: () -> Unit = {},
+    val afterTestFinished: () -> Unit = {},
+    val dbConfig: DatabaseConfig.Builder.() -> Unit = {}
+) {
     protected abstract fun initDatabase(config: DatabaseConfig): Database
 
     open val name: String get() = this::class.simpleName!!
 
-    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
-        val config = DatabaseConfig(configure)
-        db = initDatabase(config)
-        return db
-    }
+//    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
+//        val config = DatabaseConfig(configure)
+//        db = initDatabase(config)
+//        return db
+//    }
 
     sealed class Jdbc(
         val connection: () -> String,
@@ -45,15 +50,23 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
         val user: String = "root",
         val pass: String = "",
         beforeConnection: () -> Unit = {},
-        afterTestFinished: () -> Unit = {}
-    ) : TestDB(beforeConnection, afterTestFinished) {
+        afterTestFinished: () -> Unit = {},
+        dbConfig: DatabaseConfig.Builder.() -> Unit = {}
+    ) : TestDB(beforeConnection, afterTestFinished, dbConfig) {
 
         override fun initDatabase(config: DatabaseConfig) =
             Database.connect(connection(), user = user, password = pass, driver = driver, databaseConfig = config)
 
         object H2 : Jdbc({ "jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
-        object H2_MYSQL : Jdbc({ "jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1" }, "org.h2.Driver")
+        object H2_MYSQL : Jdbc(
+            { "jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1" }, "org.h2.Driver",
+            beforeConnection = {
+//                Mode::class.declaredMemberProperties.firstOrNull { it.name == "convertInsertNullToZero" }?.let { field ->
+//                   val mode = Mode.getInstance("MySQL")
+//                   (field as KMutableProperty1<Mode, Boolean>).set(mode, false)
+//                }
+            })
 
         internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
@@ -196,13 +209,11 @@ sealed class TestDB(val beforeConnection: () -> Unit = {}, val afterTestFinished
 
         fun values(): List<TestDB> = values
 
-        fun enabledInTests(): List<TestDB> {
-            val embeddedTests = (values - Jdbc.ORACLE - Jdbc.SQLSERVER - Jdbc.MARIADB).joinToString { it.name }
-            val concreteDialects = System.getProperty("exposed.test.dialects", embeddedTests).let {
-                if (it == "") emptyList()
-                else it.split(',').map { it.trim().uppercase() }
-            }
-            return values.filter { concreteDialects.isEmpty() || it.name in concreteDialects }
+        fun enabledInTests(): Set<TestDB> {
+            val concreteDialects = System.getProperty("exposed.test.dialects", "")
+                .split(",")
+                .mapTo(HashSet()) { it.trim().uppercase() }
+            return values().filterTo(mutableSetOf()) { it.name in concreteDialects }
         }
     }
 }
@@ -239,9 +250,11 @@ abstract class DatabaseTestsBase {
     }
 
     fun withDb(dbSettings: TestDB, statement: Transaction.(TestDB) -> Unit) {
-        if (dbSettings !in TestDB.enabledInTests()) {
-            exposedLogger.warn("$dbSettings is not enabled for being used in tests", RuntimeException())
-            return
+        try {
+            Assume.assumeTrue(dbSettings in TestDB.enabledInTests())
+        } catch (e: AssumptionViolatedException) {
+            exposedLogger.warn("$dbSettings is not enabled for being used in tests", e)
+            throw e
         }
 
         if (dbSettings !in registeredOnShutdown) {
@@ -266,6 +279,7 @@ abstract class DatabaseTestsBase {
     fun withDb(db: List<TestDB>? = null, excludeSettings: List<TestDB> = emptyList(), statement: Transaction.(TestDB) -> Unit) {
         val enabledInTests = TestDB.enabledInTests()
         val toTest = db?.intersect(enabledInTests) ?: (enabledInTests - excludeSettings)
+        Assume.assumeTrue(toTest.isNotEmpty())
         toTest.forEach { dbSettings ->
             @Suppress("TooGenericExceptionCaught")
             try {
@@ -277,7 +291,9 @@ abstract class DatabaseTestsBase {
     }
 
     fun withTables(excludeSettings: List<TestDB>, vararg tables: Table, statement: Transaction.(TestDB) -> Unit) {
-        (TestDB.enabledInTests() - excludeSettings).forEach { testDB ->
+        val toTest = TestDB.enabledInTests() - excludeSettings
+        Assume.assumeTrue(toTest.isNotEmpty())
+        toTest.forEach { testDB ->
             withDb(testDB) {
                 SchemaUtils.create(*tables)
                 try {
@@ -287,7 +303,7 @@ abstract class DatabaseTestsBase {
                     try {
                         SchemaUtils.drop(*tables)
                         commit()
-                    } catch (e: Exception) {
+                    } catch (_: Exception) {
                         val database = testDB.db!!
                         inTopLevelTransaction(database.transactionManager.defaultIsolationLevel, 1, db = database) {
                             SchemaUtils.drop(*tables)
@@ -299,7 +315,9 @@ abstract class DatabaseTestsBase {
     }
 
     fun withSchemas(excludeSettings: List<TestDB>, vararg schemas: Schema, statement: Transaction.() -> Unit) {
-        (TestDB.enabledInTests() - excludeSettings).forEach { testDB ->
+        val toTest = TestDB.enabledInTests() - excludeSettings
+        Assume.assumeTrue(toTest.isNotEmpty())
+        toTest.forEach { testDB ->
             withDb(testDB) {
                 SchemaUtils.createSchema(*schemas)
                 try {

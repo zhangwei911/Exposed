@@ -8,6 +8,7 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.inProperCase
+import org.jetbrains.exposed.sql.tests.shared.assertEqualCollections
 import org.jetbrains.exposed.sql.tests.shared.assertEqualLists
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.tests.shared.assertFailAndRollback
@@ -127,6 +128,95 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
                 it[id] = 3
                 it[foo] = "ABC"
             }
+
+            SchemaUtils.drop(t1)
+        }
+    }
+
+    @Test
+    fun testAddMissingColumnsStatementsChangeCasing() {
+        val t1 = object : Table("foo") {
+            val id = integer("idCol")
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        val t2 = object : Table("foo") {
+            val id = integer("idcol")
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        withDb {
+            if (db.supportsAlterTableWithAddColumn) {
+                SchemaUtils.createMissingTablesAndColumns(t1)
+
+                val missingStatements = SchemaUtils.addMissingColumnsStatements(t2)
+
+                val alterColumnWord = when (currentDialectTest) {
+                    is MysqlDialect -> "MODIFY COLUMN"
+                    is OracleDialect -> "MODIFY"
+                    else -> "ALTER COLUMN"
+                }
+
+                val expected = if (t1.id.nameInDatabaseCase() != t2.id.nameInDatabaseCase()) {
+                    "ALTER TABLE ${t2.nameInDatabaseCase()} $alterColumnWord ${t2.id.nameInDatabaseCase()} INT"
+                } else null
+
+                assertEquals(expected, missingStatements.firstOrNull())
+
+                SchemaUtils.drop(t1)
+            }
+        }
+    }
+
+    @Test
+    fun testAddMissingColumnsStatementsIdentical() {
+        val t1 = object : Table("foo") {
+            val id = integer("idcol")
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        val t2 = object : Table("foo") {
+            val id = integer("idcol")
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        withDb {
+//        withDb(db = listOf(TestDB.H2)) {
+            SchemaUtils.createMissingTablesAndColumns(t1)
+
+            val missingStatements = SchemaUtils.addMissingColumnsStatements(t2)
+
+            assertEqualCollections(missingStatements, emptyList())
+
+            SchemaUtils.drop(t1)
+        }
+    }
+
+    @Test
+    fun testAddMissingColumnsStatementsIdentical2() {
+        val t1 = object : Table("foo") {
+            val id = integer("idCol")
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        val t2 = object : Table("foo") {
+            val id = integer("idCol")
+
+            override val primaryKey = PrimaryKey(id)
+        }
+
+        withDb {
+//        withDb(db = listOf(TestDB.H2)) {
+            SchemaUtils.createMissingTablesAndColumns(t1)
+
+            val missingStatements = SchemaUtils.addMissingColumnsStatements(t2)
+
+            assertEqualCollections(missingStatements, emptyList())
 
             SchemaUtils.drop(t1)
         }
@@ -317,6 +407,23 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
         }
     }
 
+    @Test
+    fun testCamelCaseForeignKeyCreation() {
+        val ordersTable = object : IntIdTable("tmporders") {
+            val traceNumber = char("traceNumber", 10).uniqueIndex()
+        }
+        val receiptsTable = object : IntIdTable("receipts") {
+            val traceNumber = reference("traceNumber", ordersTable.traceNumber)
+        }
+
+        withDb {
+            SchemaUtils.createMissingTablesAndColumns(ordersTable, receiptsTable)
+            assertTrue(ordersTable.exists())
+            assertTrue(receiptsTable.exists())
+            SchemaUtils.drop(ordersTable, receiptsTable)
+        }
+    }
+
     object MultipleIndexesTable : Table("H2_MULTIPLE_INDEXES") {
         val value1 = varchar("value1", 255)
         val value2 = varchar("value2", 255)
@@ -327,7 +434,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
         }
     }
 
-    @Test fun testCreateTableWithReferenceMutipleTimes() {
+    @Test fun testCreateTableWithReferenceMultipleTimes() {
         withTables(PlayerTable, SessionsTable) {
             SchemaUtils.createMissingTablesAndColumns(PlayerTable, SessionsTable)
             SchemaUtils.createMissingTablesAndColumns(PlayerTable, SessionsTable)
@@ -388,6 +495,29 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
             } finally {
                 SchemaUtils.drop(usersTable)
             }
+        }
+    }
+
+    object CompositePrimaryKeyTable : Table("H2_COMPOSITE_PRIMARY_KEY") {
+        val idA = varchar("id_a", 255)
+        val idB = varchar("id_b", 255)
+        override val primaryKey = PrimaryKey(idA, idB)
+    }
+
+    object CompositeForeignKeyTable : Table("H2_COMPOSITE_FOREIGN_KEY") {
+        val idA = varchar("id_a", 255)
+        val idB = varchar("id_b", 255)
+
+        init {
+            foreignKey(idA, idB, target = CompositePrimaryKeyTable.primaryKey)
+        }
+    }
+
+    @Test
+    fun testCreateCompositePrimaryKeyTableAndCompositeForeignKeyTableMultipleTimes() {
+        withTables(CompositePrimaryKeyTable, CompositeForeignKeyTable) {
+            SchemaUtils.createMissingTablesAndColumns(CompositePrimaryKeyTable, CompositeForeignKeyTable)
+            SchemaUtils.createMissingTablesAndColumns(CompositePrimaryKeyTable, CompositeForeignKeyTable)
         }
     }
 }

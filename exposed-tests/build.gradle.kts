@@ -1,19 +1,15 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
-import org.jetbrains.exposed.gradle.setupDialectTest
 import org.jetbrains.exposed.gradle.Versions
-import org.jetbrains.exposed.gradle.setupTestDriverDependencies
-
 
 plugins {
     kotlin("jvm") apply true
+    id("testWithDBs")
 }
 
 repositories {
     mavenCentral()
 }
-
-val dialect: String by project
 
 dependencies {
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", Versions.kotlinCoroutines)
@@ -21,6 +17,7 @@ dependencies {
     implementation(project(":exposed-jdbc"))
     implementation(project(":exposed-rdbc"))
     implementation(project(":exposed-dao"))
+    implementation(project(":exposed-crypt"))
     implementation(kotlin("test-junit"))
     implementation("org.slf4j", "slf4j-api", Versions.slf4j)
     implementation("org.apache.logging.log4j", "log4j-slf4j-impl", Versions.log4j2)
@@ -30,22 +27,20 @@ dependencies {
     implementation("org.hamcrest", "hamcrest-library", "1.3")
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-debug", Versions.kotlinCoroutines)
 
-    testRuntimeOnly("org.testcontainers", "testcontainers", Versions.testContainers)
     implementation("org.testcontainers", "mysql", Versions.testContainers)
     implementation("com.opentable.components", "otj-pg-embedded", Versions.otjPgEmbedded)
+    testCompileOnly("org.postgresql", "postgresql", Versions.postgre)
+    testCompileOnly("com.impossibl.pgjdbc-ng", "pgjdbc-ng", Versions.postgreNG)
+    compileOnly("com.h2database", "h2", Versions.h2)
+    testCompileOnly("org.xerial", "sqlite-jdbc", Versions.sqlLite3)
 
-//    testImplementation("com.h2database", "h2", Versions.h2)
     compileOnly("org.postgresql", "r2dbc-postgresql", Versions.r2dbcPostgre)
     compileOnly("io.r2dbc", "r2dbc-h2", Versions.r2dbcH2) {
         exclude("com.h2database", "h2")
     }
-
-    setupTestDriverDependencies(dialect) { group, artifactId, version ->
-        testImplementation(group, artifactId, version)
-    }
 }
 
-tasks.withType(Test::class.java) {
+tasks.withType<Test>().configureEach {
     jvmArgs = listOf("-XX:MaxPermSize=256m")
     testLogging {
         events.addAll(listOf(TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.SKIPPED))
@@ -53,5 +48,3 @@ tasks.withType(Test::class.java) {
         exceptionFormat = TestExceptionFormat.FULL
     }
 }
-
-setupDialectTest(dialect)

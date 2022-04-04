@@ -25,6 +25,7 @@ interface TransactionInterface {
     fun close()
 }
 
+@Deprecated("There is no single default level for all databases, please don't use that constant")
 const val DEFAULT_ISOLATION_LEVEL = Connection.TRANSACTION_REPEATABLE_READ
 
 private object NotInitializedManager : TransactionManager {
@@ -58,22 +59,25 @@ interface TransactionManager {
         internal val currentDefaultDatabase = AtomicReference<Database>()
 
         var defaultDatabase: Database?
-            get() = currentDefaultDatabase.get() ?: databases.firstOrNull()
-            set(value) { currentDefaultDatabase.set(value) }
+            @Synchronized get() = currentDefaultDatabase.get() ?: databases.firstOrNull()
+            @Synchronized set(value) { currentDefaultDatabase.set(value) }
 
         private val databases = ConcurrentLinkedDeque<Database>()
 
         private val registeredDatabases = ConcurrentHashMap<Database, TransactionManager>()
 
-        fun registerManager(database: Database, manager: TransactionManager) {
+        @Synchronized fun registerManager(database: Database, manager: TransactionManager) {
             if (defaultDatabase == null) {
                 currentThreadManager.remove()
             }
+            if (!registeredDatabases.containsKey(database)) {
+                databases.push(database)
+            }
+
             registeredDatabases[database] = manager
-            databases.push(database)
         }
 
-        fun closeAndUnregister(database: Database) {
+        @Synchronized fun closeAndUnregister(database: Database) {
             val manager = registeredDatabases[database]
             manager?.let {
                 registeredDatabases.remove(database)
@@ -87,7 +91,7 @@ interface TransactionManager {
 
         fun managerFor(database: Database?) = if (database != null) registeredDatabases[database] else manager
 
-        internal val currentThreadManager = object : ThreadLocal<TransactionManager>() {
+        private val currentThreadManager = object : ThreadLocal<TransactionManager>() {
             override fun initialValue(): TransactionManager {
                 return defaultDatabase?.let { registeredDatabases.getValue(it) } ?: NotInitializedManager
             }

@@ -56,7 +56,7 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
     override val supportsSelectForUpdate: Boolean by lazyMetadata { supportsSelectForUpdate() }
 
     override val identifierManager: IdentifierManagerApi by lazyMetadata {
-        identityManagerCache.computeIfAbsent(url) {
+        identityManagerCache.getOrPut(url) {
             JdbcIdentifierManager(this)
         }
     }
@@ -70,7 +70,7 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
                         OracleDialect.dialectName -> databaseName
                         else -> metadata.connection.schema.orEmpty()
                     }
-                } catch (e: Throwable) {
+                } catch (_: Throwable) {
                     ""
                 }
             }
@@ -226,7 +226,9 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
                 } ?: return@iterate null // Do not crash if there are missing fields in Exposed's tables
                 val constraintName = getString("FK_NAME")!!
                 val targetTableName = getString("PKTABLE_NAME")!!
-                val targetColumnName = identifierManager.quoteIdentifierWhenWrongCaseOrNecessary(getString("PKCOLUMN_NAME")!!)
+                val targetColumnName = identifierManager.quoteIdentifierWhenWrongCaseOrNecessary(
+                    identifierManager.inProperCase(getString("PKCOLUMN_NAME")!!)
+                )
                 val targetColumn = allTables.getValue(targetTableName).columns.first {
                     identifierManager.quoteIdentifierWhenWrongCaseOrNecessary(it.nameInDatabaseCase()) == targetColumnName
                 }
@@ -239,7 +241,11 @@ class JdbcDatabaseMetadataImpl(database: String, val metadata: DatabaseMetaData)
                     onDelete = constraintDeleteRule,
                     name = constraintName
                 )
-            }.filterNotNull()
+            }
+                .filterNotNull()
+                .groupBy { it.fkName }
+                .values
+                .map { it.reduce(ForeignKeyConstraint::plus) }
         }
     }
 

@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.sql.tests.shared.dml
 
+import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -10,12 +11,19 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.*
+import org.jetbrains.exposed.sql.tests.shared.entities.EntityTests
+import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
+import org.junit.Assume
 import org.junit.Test
 import java.math.BigDecimal
+import java.sql.SQLException
 import java.util.*
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.fail
 
 class InsertTests : DatabaseTestsBase() {
     @Test
@@ -387,7 +395,7 @@ class InsertTests : DatabaseTestsBase() {
         }
     }
 
-    @Test(expected = java.lang.IllegalArgumentException::class)
+    @Test
     fun `test that column length checked on insert`() {
         val stringTable = object : IntIdTable("StringTable") {
             val name = varchar("name", 10)
@@ -395,8 +403,10 @@ class InsertTests : DatabaseTestsBase() {
 
         withTables(stringTable) {
             val veryLongString = "1".repeat(255)
-            stringTable.insert {
-                it[name] = veryLongString
+            expectException<IllegalArgumentException> {
+                stringTable.insert {
+                    it[name] = veryLongString
+                }
             }
         }
     }
@@ -430,37 +440,115 @@ class InsertTests : DatabaseTestsBase() {
         }
     }
 
-    /*
     @Test fun testGeneratedKey04() {
         val CharIdTable = object : IdTable<String>("charId") {
-            override val id = varchar("id", 50).primaryKey()
+            override val id = varchar("id", 50)
                     .clientDefault { UUID.randomUUID().toString() }
                     .entityId()
             val foo = integer("foo")
+
+            override val primaryKey: PrimaryKey = PrimaryKey(id)
         }
-        withTables(CharIdTable){
-            val id = IntIdTestTable.insertAndGetId {
+        withTables(CharIdTable) {
+            val id = CharIdTable.insertAndGetId {
                 it[CharIdTable.foo] = 5
             }
-            assertNotNull(id?.value)
-        }
-    } */
-
-/*
-    Test fun testInsert05() {
-        val stringThatNeedsEscaping = "multi\r\nline"
-        val t = DMLTestsData.Misc
-        withTables(t) {
-            t.insert {
-                it[n] = 42
-                it[d] = today
-                it[e] = DMLTestsData.E.ONE
-                it[s] = stringThatNeedsEscaping
-            }
-
-            val row = t.selectAll().single()
-            t.checkRow(row, 42, null, today, null, DMLTestsData.E.ONE, null, stringThatNeedsEscaping, null)
+            assertNotNull(id.value)
         }
     }
-*/
+
+    @Test fun `rollback on constraint exception normal transactions`() {
+        val TestTable = object : IntIdTable("TestRollback") {
+            val foo = integer("foo").check { it greater 0 }
+        }
+        val dbToTest = TestDB.enabledInTests() - setOfNotNull(
+            TestDB.SQLITE,
+            TestDB.MYSQL.takeIf { System.getProperty("exposed.test.mysql8.port") == null }
+        )
+        Assume.assumeTrue(dbToTest.isNotEmpty())
+        dbToTest.forEach { db ->
+            try {
+                try {
+                    withDb(db) {
+                        SchemaUtils.create(TestTable)
+                        TestTable.insert { it[foo] = 1 }
+                        TestTable.insert { it[foo] = 0 }
+                    }
+                    fail("Should fail on constraint > 0")
+                } catch (_: SQLException) {
+                    // expected
+                }
+                withDb(db) {
+                    assertTrue(TestTable.selectAll().empty())
+                }
+            } finally {
+                withDb(db) {
+                    SchemaUtils.drop()
+                }
+            }
+        }
+    }
+
+    @Test fun `rollback on constraint exception normal suspended transactions`() {
+        val TestTable = object : IntIdTable("TestRollback") {
+            val foo = integer("foo").check { it greater 0 }
+        }
+        val dbToTest = TestDB.enabledInTests() - listOfNotNull(
+            TestDB.SQLITE,
+            TestDB.MYSQL.takeIf { System.getProperty("exposed.test.mysql8.port") == null }
+        )
+        Assume.assumeTrue(dbToTest.isNotEmpty())
+        dbToTest.forEach { db ->
+            try {
+                try {
+                    withDb(db) {
+                        SchemaUtils.create(TestTable)
+                    }
+                    runBlocking {
+                        newSuspendedTransaction(db = db.db) {
+                            TestTable.insert { it[foo] = 1 }
+                            TestTable.insert { it[foo] = 0 }
+                        }
+                    }
+                    fail("Should fail on constraint > 0")
+                } catch (_: SQLException) {
+                    // expected
+                }
+
+                withDb(db) {
+                    assertTrue(TestTable.selectAll().empty())
+                }
+            } finally {
+                withDb(db) {
+                    SchemaUtils.drop()
+                }
+            }
+        }
+    }
+
+    @Test fun `test optReference allows null values`() {
+        withTables(EntityTests.Posts) {
+            val id1 = EntityTests.Posts.insertAndGetId {
+                it[board] = null
+                it[category] = null
+            }
+
+            val inserted1 = EntityTests.Posts.select { EntityTests.Posts.id eq id1 }.single()
+            assertNull(inserted1[EntityTests.Posts.board])
+            assertNull(inserted1[EntityTests.Posts.category])
+
+            val boardId = EntityTests.Boards.insertAndGetId {
+                it[name] = UUID.randomUUID().toString()
+            }
+            val categoryId = EntityTests.Categories.insert {
+                it[title] = "Category"
+            }[EntityTests.Categories.uniqueId]
+
+            val id2 = EntityTests.Posts.insertAndGetId {
+                it[board] = Op.nullOp()
+                it[category] = categoryId
+                it[board] = boardId.value
+            }
+        }
+    }
 }

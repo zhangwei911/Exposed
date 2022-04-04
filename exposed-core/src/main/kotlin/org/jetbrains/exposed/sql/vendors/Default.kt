@@ -6,6 +6,8 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import java.nio.ByteBuffer
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.HashMap
+import kotlin.collections.LinkedHashSet
 
 /**
  * Provides definitions for all the supported SQL data types.
@@ -185,8 +187,9 @@ abstract class FunctionProvider {
         }
         append(expr.expr)
         if (expr.orderBy.isNotEmpty()) {
-            expr.orderBy.appendTo(prefix = " ORDER BY ") {
-                append(it.first, " ", it.second.name)
+            append(" ORDER BY ")
+            expr.orderBy.appendTo { (expression, sortOrder) ->
+                currentDialect.dataTypeProvider.precessOrderByClause(this, expression, sortOrder)
             }
         }
         expr.separator?.let {
@@ -578,8 +581,8 @@ interface DatabaseDialect {
     /** Returns a map with the column metadata of all the defined columns in each of the specified [tables]. */
     fun tableColumns(vararg tables: Table): Map<Table, List<ColumnMetadata>> = emptyMap()
 
-    /** Returns a map with the foreign key constraints of all the defined columns in each of the specified [tables]. */
-    fun columnConstraints(vararg tables: Table): Map<Pair<Table, Column<*>>, List<ForeignKeyConstraint>> = emptyMap()
+    /** Returns a map with the foreign key constraints of all the defined columns sets in each of the specified [tables]. */
+    fun columnConstraints(vararg tables: Table): Map<Pair<Table, LinkedHashSet<Column<*>>>, List<ForeignKeyConstraint>> = emptyMap()
 
     /** Returns a map with all the defined indices in each of the specified [tables]. */
     fun existingIndices(vararg tables: Table): Map<Table, List<Index>> = emptyMap()
@@ -608,7 +611,7 @@ interface DatabaseDialect {
     fun dropIndex(tableName: String, indexName: String): String
 
     /** Returns the SQL command that modifies the specified [column]. */
-    fun modifyColumn(column: Column<*>, nullabilityChanged: Boolean, autoIncrementChanged: Boolean, defaultChanged: Boolean): List<String>
+    fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String>
 
     fun createDatabase(name: String) = "CREATE DATABASE IF NOT EXISTS ${name.inProperCase()}"
 
@@ -701,15 +704,15 @@ abstract class VendorDialect(
     override fun tableColumns(vararg tables: Table): Map<Table, List<ColumnMetadata>> =
         TransactionManager.current().connection.metadata { columns(*tables) }
 
-    override fun columnConstraints(vararg tables: Table): Map<Pair<Table, Column<*>>, List<ForeignKeyConstraint>> {
-        val constraints = HashMap<Pair<Table, Column<*>>, MutableList<ForeignKeyConstraint>>()
+    override fun columnConstraints(vararg tables: Table): Map<Pair<Table, LinkedHashSet<Column<*>>>, List<ForeignKeyConstraint>> {
+        val constraints = HashMap<Pair<Table, LinkedHashSet<Column<*>>>, MutableList<ForeignKeyConstraint>>()
 
         val tablesToLoad = tables.filter { !columnConstraintsCache.containsKey(it.nameInDatabaseCase()) }
 
         fillConstraintCacheForTables(tablesToLoad)
         tables.forEach { table ->
             columnConstraintsCache[table.nameInDatabaseCase()].orEmpty().forEach {
-                constraints.getOrPut(it.from.table to it.from) { arrayListOf() }.add(it)
+                constraints.getOrPut(table to it.from) { arrayListOf() }.add(it)
             }
         }
         return constraints
@@ -725,7 +728,7 @@ abstract class VendorDialect(
     protected fun String.quoteIdentifierWhenWrongCaseOrNecessary(tr: Transaction): String =
         tr.db.identifierManager.quoteIdentifierWhenWrongCaseOrNecessary(this)
 
-    protected val columnConstraintsCache: MutableMap<String, List<ForeignKeyConstraint>> = ConcurrentHashMap()
+    protected val columnConstraintsCache: MutableMap<String, Collection<ForeignKeyConstraint>> = ConcurrentHashMap()
 
     protected open fun fillConstraintCacheForTables(tables: List<Table>): Unit =
         columnConstraintsCache.putAll(TransactionManager.current().db.metadata { tableConstraints(tables) })
@@ -768,12 +771,8 @@ abstract class VendorDialect(
         return "ALTER TABLE ${identifierManager.quoteIfNecessary(tableName)} DROP CONSTRAINT ${identifierManager.quoteIfNecessary(indexName)}"
     }
 
-    override fun modifyColumn(
-        column: Column<*>,
-        nullabilityChanged: Boolean,
-        autoIncrementChanged: Boolean,
-        defaultChanged: Boolean
-    ): List<String> = listOf("ALTER TABLE ${TransactionManager.current().identity(column.table)} MODIFY COLUMN ${column.descriptionDdl(true)}")
+    override fun modifyColumn(column: Column<*>, columnDiff: ColumnDiff): List<String> =
+        listOf("ALTER TABLE ${TransactionManager.current().identity(column.table)} MODIFY COLUMN ${column.descriptionDdl(true)}")
 }
 
 private val explicitDialect = ThreadLocal<DatabaseDialect?>()
@@ -787,7 +786,7 @@ internal fun <T> withDialect(dialect: DatabaseDialect, body: () -> T): T {
     }
 }
 
-/** Returns the dialect used in the current transaction, may trow an exception if there is no current transaction. */
+/** Returns the dialect used in the current transaction, may throw an exception if there is no current transaction. */
 val currentDialect: DatabaseDialect get() = explicitDialect.get() ?: TransactionManager.current().db.dialect
 
 internal val currentDialectIfAvailable: DatabaseDialect?

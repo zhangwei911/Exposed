@@ -111,9 +111,8 @@ class Database(
         fun getDefaultIsolationLevel(db: Database): Int =
             when (db.dialect) {
                 is SQLiteDialect -> Connection.TRANSACTION_SERIALIZABLE
-                is OracleDialect -> Connection.TRANSACTION_READ_COMMITTED
-                is PostgreSQLDialect -> Connection.TRANSACTION_READ_COMMITTED
-                else -> DEFAULT_ISOLATION_LEVEL
+                is MysqlDialect -> Connection.TRANSACTION_REPEATABLE_READ
+                else -> Connection.TRANSACTION_READ_COMMITTED
             }
 
         fun getDriver(url: String) = driverMapping.entries.firstOrNull { (prefix, _) ->

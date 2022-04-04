@@ -9,6 +9,7 @@ import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.SQLServerDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
+import org.junit.Assume
 import org.junit.Test
 
 class SchemaTests : DatabaseTestsBase() {
@@ -121,6 +122,7 @@ class SchemaTests : DatabaseTestsBase() {
 
     @Test
     fun `test default schema`() {
+        Assume.assumeTrue(TestDB.Jdbc.H2 in TestDB.enabledInTests())
         val schema = Schema("schema")
 
         TestDB.Jdbc.H2.connect()

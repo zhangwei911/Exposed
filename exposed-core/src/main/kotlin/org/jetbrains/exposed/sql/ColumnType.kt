@@ -63,7 +63,7 @@ interface IColumnType {
 
     /** Sets the [value] at the specified [index] into the [stmt]. */
     fun setParameter(stmt: PreparedStatementApi, index: Int, value: Any?) {
-        if (value == null || value == Op.NULL) {
+        if (value == null || value is Op.NULL) {
             stmt.setNull(index, this)
         } else {
             stmt[index] = value
@@ -163,6 +163,9 @@ val Column<*>.autoIncColumnType: AutoIncColumnType?
 @Deprecated("Will be removed in upcoming releases. Please use [autoIncColumnType.autoincSeq] instead", ReplaceWith("this.autoIncColumnType.autoincSeq"), DeprecationLevel.ERROR)
 val Column<*>.autoIncSeqName: String?
     get() = autoIncColumnType?.autoincSeq
+internal fun IColumnType.rawSqlType(): IColumnType =
+    if (this is AutoIncColumnType) this.delegate else if (this is EntityIDColumnType<*> && idColumn.columnType is AutoIncColumnType) this.idColumn.columnType.delegate else this
+
 
 class EntityIDColumnType<T : Comparable<T>>(val idColumn: Column<T>) : ColumnType() {
 
@@ -657,7 +660,7 @@ open class BasicBinaryColumnType : ColumnType() {
 /**
  * Binary column for storing binary strings of a specific [length].
  */
-class BinaryColumnType(
+open class BinaryColumnType(
     /** Returns the length of the column- */
     val length: Int
 ) : BasicBinaryColumnType() {
@@ -719,7 +722,7 @@ class BlobColumnType : ColumnType() {
     override fun setParameter(stmt: PreparedStatementApi, index: Int, value: Any?) {
         when (val toSetValue = (value as? ExposedBlob)?.bytes?.inputStream() ?: value) {
             is InputStream -> stmt.setInputStream(index, toSetValue)
-            null, Op.NULL -> stmt.setNull(index, this)
+            null, is Op.NULL -> stmt.setNull(index, this)
             else -> super.setParameter(stmt, index, toSetValue)
         }
     }
@@ -786,10 +789,11 @@ class EnumerationColumnType<T : Enum<T>>(
     val klass: KClass<T>
 ) : ColumnType() {
     override fun sqlType(): String = currentDialect.dataTypeProvider.integerType()
+    private val enumConstants by lazy { klass.java.enumConstants!! }
 
     @Suppress("UNCHECKED_CAST")
     override fun valueFromDB(value: Any): T = when (value) {
-        is Number -> klass.java.enumConstants!![value.toInt()]
+        is Number -> enumConstants[value.toInt()]
         is Enum<*> -> value as T
         else -> error("$value of ${value::class.qualifiedName} is not valid for enum ${klass.simpleName}")
     }
@@ -827,9 +831,11 @@ class EnumerationNameColumnType<T : Enum<T>>(
     val klass: KClass<T>,
     colLength: Int
 ) : VarCharColumnType(colLength) {
+    private val enumConstants by lazy { klass.java.enumConstants!!.associateBy { it.name } }
+
     @Suppress("UNCHECKED_CAST")
     override fun valueFromDB(value: Any): T = when (value) {
-        is String -> klass.java.enumConstants!!.firstOrNull { it.name == value } ?: error("$value can't be associated with any from enum ${klass.qualifiedName}")
+        is String -> enumConstants[value] ?: error("$value can't be associated with any from enum ${klass.qualifiedName}")
         is Enum<*> -> value as T
         else -> error("$value of ${value::class.qualifiedName} is not valid for enum ${klass.qualifiedName}")
     }

@@ -14,6 +14,7 @@ import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
 import org.junit.After
+import org.junit.Assume
 import org.junit.Test
 import java.io.PrintWriter
 import java.sql.Connection
@@ -113,6 +114,7 @@ class ConnectionExceptions {
         `_transaction repetition works even if rollback throws exception`(::ExceptionOnRollbackConnection)
     }
     private fun `_transaction repetition works even if rollback throws exception`(connectionDecorator: (Connection) -> ConnectionSpy) {
+        Assume.assumeTrue(TestDB.Jdbc.H2 in TestDB.enabledInTests())
         Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
         val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
@@ -146,6 +148,7 @@ class ConnectionExceptions {
         `_transaction repetition works when commit throws exception`(::ExceptionOnCommitConnection)
     }
     private fun `_transaction repetition works when commit throws exception`(connectionDecorator: (Connection) -> ConnectionSpy) {
+        Assume.assumeTrue(TestDB.Jdbc.H2 in TestDB.enabledInTests())
         Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
         val wrappingDataSource = WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
@@ -155,7 +158,7 @@ class ConnectionExceptions {
                 this.exec("SELECT 1;")
             }
             fail("Should have thrown an exception")
-        } catch (e: CommitException) {
+        } catch (_: CommitException) {
             assertEquals(5, wrappingDataSource.connections.size)
             wrappingDataSource.connections.forEach {
                 assertTrue(it.commitCalled)
@@ -169,6 +172,7 @@ class ConnectionExceptions {
         `_transaction throws exception if all commits throws exception`(::ExceptionOnCommitConnection)
     }
     private fun `_transaction throws exception if all commits throws exception`(connectionDecorator: (Connection) -> ConnectionSpy) {
+        Assume.assumeTrue(TestDB.Jdbc.H2 in TestDB.enabledInTests())
         Class.forName(TestDB.Jdbc.H2.driver).newInstance()
 
         val wrappingDataSource = ConnectionExceptions.WrappingDataSource(TestDB.Jdbc.H2, connectionDecorator)
@@ -178,7 +182,7 @@ class ConnectionExceptions {
                 this.exec("SELECT 1;")
             }
             fail("Should have thrown an exception")
-        } catch (e: CommitException) {
+        } catch (_: CommitException) {
             // Yay
         }
     }
@@ -232,7 +236,7 @@ class ConnectionExceptions {
 class ThreadLocalManagerTest : DatabaseTestsBase() {
     @Test
     fun testReconnection() {
-        if (TestDB.Jdbc.MYSQL !in TestDB.enabledInTests()) return
+        Assume.assumeTrue(TestDB.Jdbc.MYSQL in TestDB.enabledInTests())
 
         var secondThreadTm: TransactionManager? = null
         val db1 = TestDB.Jdbc.MYSQL.connect()
@@ -325,6 +329,7 @@ class TransactionIsolationTest : DatabaseTestsBase() {
 class TransactionManagerResetTest {
     @Test
     fun `test closeAndUnregister with next Database-connect works fine`() {
+        Assume.assumeTrue(TestDB.H2 in TestDB.enabledInTests())
         val initialManager = TransactionManager.manager
         val db1 = TestDB.Jdbc.H2.connect()
         val db1TransactionManager = TransactionManager.managerFor(db1)

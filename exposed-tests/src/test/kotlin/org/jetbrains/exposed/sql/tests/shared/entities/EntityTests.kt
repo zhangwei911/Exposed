@@ -17,9 +17,9 @@ import org.junit.Test
 import java.sql.Connection
 import java.util.*
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 object EntityTestsData {
 
@@ -1271,6 +1271,52 @@ class EntityTests : DatabaseTestsBase() {
 
             kotlin.test.assertEquals(bio1, student1.bio)
             kotlin.test.assertEquals(bio1.student, student1)
+        }
+    }
+
+    @Test fun `test nested entity initialization`() {
+        withTables(Posts, Categories, Boards) {
+            val post = Post.new {
+                parent = Post.new {
+                    board = Board.new {
+                        name = "Parent Board"
+                    }
+                    category = Category.new {
+                        title = "Parent Category"
+                    }
+                }
+                category = Category.new {
+                    title = "Child Category"
+                }
+
+                optCategory = parent!!.category
+            }
+
+            assertEquals("Parent Board", post.parent?.board?.name)
+            assertEquals("Parent Category", post.parent?.category?.title)
+            assertEquals("Parent Category", post.optCategory?.title)
+            assertEquals("Child Category", post.category?.title)
+        }
+    }
+
+    @Test fun `test explicit entity constructor`() {
+        var createBoardCalled = false
+        fun createBoard(id: EntityID<Int>): Board {
+            createBoardCalled = true
+            return Board(id)
+        }
+        val boardEntityClass = object : IntEntityClass<Board>(Boards, entityCtor = ::createBoard) { }
+
+        withTables(Boards) {
+            val board = boardEntityClass.new {
+                name = "Test Board"
+            }
+
+            assertEquals("Test Board", board.name)
+            assertTrue(
+                createBoardCalled,
+                "Expected createBoardCalled to be called"
+            )
         }
     }
 }

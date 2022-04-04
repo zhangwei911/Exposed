@@ -12,17 +12,16 @@ import kotlin.reflect.full.allSuperclasses
 
 class ExposedSQLException(cause: Throwable?, val contexts: List<StatementContext>, private val transaction: Transaction) : SQLException(cause) {
     fun causedByQueries(): List<String> = contexts.map {
-        @Suppress("TooGenericExceptionCaught")
         try {
             if (transaction.debug) {
                 it.expandArgs(transaction)
             } else {
                 it.sql(transaction)
             }
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             try {
                 (it.statement as? AbstractQuery<*>)?.prepareSQL(QueryBuilder(!transaction.debug))
-            } catch (e: Throwable) {
+            } catch (_: Throwable) {
                 null
             } ?: "Failed on expanding args for ${it.statement.type}: ${it.statement}"
         }
