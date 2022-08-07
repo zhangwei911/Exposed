@@ -14,8 +14,8 @@ repositories {
 dependencies {
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", Versions.kotlinCoroutines)
     implementation(project(":exposed-core"))
-    implementation(project(":exposed-jdbc"))
-    implementation(project(":exposed-rdbc"))
+    api(project(":exposed-jdbc"))
+    api(project(":exposed-rdbc"))
     implementation(project(":exposed-dao"))
     implementation(project(":exposed-crypt"))
     implementation(kotlin("test-junit"))

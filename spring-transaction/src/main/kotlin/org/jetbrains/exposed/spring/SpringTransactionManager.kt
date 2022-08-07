@@ -1,5 +1,6 @@
 package org.jetbrains.exposed.spring
 
+import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.sql.DEFAULT_REPETITION_ATTEMPTS
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.DatabaseConfig

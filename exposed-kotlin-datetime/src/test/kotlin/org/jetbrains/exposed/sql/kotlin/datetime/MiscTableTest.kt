@@ -1100,7 +1100,7 @@ class MiscTableTest : DatabaseTestsBase() {
         val duration = Duration.minutes(1)
         val eOne = MiscTable.E.ONE
         val dec = BigDecimal("239.42")
-        withTables(excludeSettings = listOf(TestDB.MYSQL, TestDB.MARIADB), tables = arrayOf(tbl)) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.MYSQL, TestDB.Jdbc.MARIADB), tables = arrayOf(tbl)) {
             tbl.insert {
                 it[by] = 13
                 it[sm] = -10
@@ -1181,7 +1181,7 @@ class MiscTableTest : DatabaseTestsBase() {
 
     @Test
     fun testZeroDateTimeIsNull() {
-        withDb(listOf(TestDB.MYSQL, TestDB.MARIADB)) {
+        withDb(listOf(TestDB.Jdbc.MYSQL, TestDB.Jdbc.MARIADB)) {
             exec(zeroDateTimeTableDdl)
             try {
                 // Need ignore to bypass strict mode

@@ -462,8 +462,8 @@ class InsertTests : DatabaseTestsBase() {
             val foo = integer("foo").check { it greater 0 }
         }
         val dbToTest = TestDB.enabledInTests() - setOfNotNull(
-            TestDB.SQLITE,
-            TestDB.MYSQL.takeIf { System.getProperty("exposed.test.mysql8.port") == null }
+            TestDB.Jdbc.SQLITE,
+            TestDB.Jdbc.MYSQL.takeIf { System.getProperty("exposed.test.mysql8.port") == null }
         )
         Assume.assumeTrue(dbToTest.isNotEmpty())
         dbToTest.forEach { db ->
@@ -494,8 +494,8 @@ class InsertTests : DatabaseTestsBase() {
             val foo = integer("foo").check { it greater 0 }
         }
         val dbToTest = TestDB.enabledInTests() - listOfNotNull(
-            TestDB.SQLITE,
-            TestDB.MYSQL.takeIf { System.getProperty("exposed.test.mysql8.port") == null }
+            TestDB.Jdbc.SQLITE,
+            TestDB.Jdbc.MYSQL.takeIf { System.getProperty("exposed.test.mysql8.port") == null }
         )
         Assume.assumeTrue(dbToTest.isNotEmpty())
         dbToTest.forEach { db ->

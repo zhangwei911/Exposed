@@ -1,6 +1,7 @@
 package org.jetbrains.exposed.spring
 
 import org.jetbrains.exposed.exceptions.ExposedSQLException
+import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.spring.tables.TestTable
 import org.jetbrains.exposed.spring.tables.ignore.IgnoreTable
 import org.jetbrains.exposed.sql.Database

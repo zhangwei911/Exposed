@@ -42,7 +42,7 @@ open class MoneyBaseTest : DatabaseTestsBase() {
     @Test
     fun testInsertSelectOutOfLength() {
         val toInsert = Money.of(BigDecimal.valueOf(12345678901), "CZK")
-        withTables(excludeSettings = listOf(TestDB.SQLITE), Account) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.SQLITE), Account) {
             expectException<ExposedSQLException> {
                 val accountID = Account.insertAndGetId {
                     it[composite_money] = toInsert

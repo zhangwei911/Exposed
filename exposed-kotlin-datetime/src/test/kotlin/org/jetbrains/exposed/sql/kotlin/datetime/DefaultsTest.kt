@@ -200,7 +200,7 @@ class DefaultsTest : DatabaseTestsBase() {
             else -> "NULL"
         }
 
-        withTables(listOf(TestDB.SQLITE), TestTable) {
+        withTables(listOf(TestDB.Jdbc.SQLITE), TestTable) {
             val dtType = currentDialectTest.dataTypeProvider.dateTimeType()
             val longType = currentDialectTest.dataTypeProvider.longType()
             val timeType = currentDialectTest.dataTypeProvider.timeType()

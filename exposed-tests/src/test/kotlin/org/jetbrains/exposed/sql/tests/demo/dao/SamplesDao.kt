@@ -36,7 +36,7 @@ class City(id: EntityID<Int>) : IntEntity(id) {
 }
 
 fun main() {
-    Assume.assumeTrue(TestDB.H2 in TestDB.enabledInTests())
+    Assume.assumeTrue(TestDB.Jdbc.H2 in TestDB.enabledInTests())
     Database.connect("jdbc:h2:mem:test", driver = "org.h2.Driver", user = "root", password = "")
 
     transaction {

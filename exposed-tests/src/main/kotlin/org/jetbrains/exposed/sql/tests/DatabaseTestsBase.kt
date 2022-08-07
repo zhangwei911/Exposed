@@ -26,7 +26,6 @@ import java.sql.Connection
 import java.util.*
 import kotlin.concurrent.thread
 import kotlin.reflect.KClass
-import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KVisibility
 
 sealed class TestDB(
@@ -34,15 +33,18 @@ sealed class TestDB(
     val afterTestFinished: () -> Unit = {},
     val dbConfig: DatabaseConfig.Builder.() -> Unit = {}
 ) {
+    lateinit var db: Database
     protected abstract fun initDatabase(config: DatabaseConfig): Database
 
     open val name: String get() = this::class.simpleName!!
 
-//    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
-//        val config = DatabaseConfig(configure)
-//        db = initDatabase(config)
-//        return db
-//    }
+    fun connect(configure: DatabaseConfig.Builder.() -> Unit = {}): Database {
+        val config = DatabaseConfig {
+            dbConfig()
+            configure()
+        }
+        return initDatabase(config)
+    }
 
     sealed class Jdbc(
         val connection: () -> String,
@@ -55,7 +57,7 @@ sealed class TestDB(
     ) : TestDB(beforeConnection, afterTestFinished, dbConfig) {
 
         override fun initDatabase(config: DatabaseConfig) =
-            Database.connect(connection(), user = user, password = pass, driver = driver, databaseConfig = config)
+            Database.connect(connection(), user = user, password = pass, driver = driver, databaseConfig = DatabaseConfig(dbConfig))
 
         object H2 : Jdbc({ "jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
@@ -116,7 +118,7 @@ sealed class TestDB(
             },
             beforeConnection = {
                 Locale.setDefault(Locale.ENGLISH)
-                val tmp = Database.connect(ORACLE.connection(), user = "sys as sysdba", password = "Oracle18", driver = ORACLE.driver)
+                val tmp = Database.connect(ORACLE.connection(), user = "sys as sysdba", password = "Oracle18", driver = "oracle.jdbc.OracleDriver")
                 transaction(Connection.TRANSACTION_READ_COMMITTED, 1, tmp) {
                     try {
                         exec("DROP USER ExposedTest CASCADE")
@@ -158,7 +160,7 @@ sealed class TestDB(
     }
 
     sealed class Rdbc(
-        val connectionFactory: ConnectionFactory,
+        val connectionFactory: () -> ConnectionFactory,
         val jdbc: Jdbc
     ) : TestDB({}, {}) {
 
@@ -167,35 +169,39 @@ sealed class TestDB(
         override fun initDatabase(config: DatabaseConfig): Database {
             val jdbcDb = jdbc.connect()
             return Database.rdbcConnect(
-                connection = connectionFactory.create(),
+                connection = connectionFactory().create(),
                 jdbcConnection = {
                     (jdbcDb.connector() as JdbcConnectionImpl).connection
                 },
-                databaseConfig = config
+                databaseConfig = DatabaseConfig(dbConfig)
             )
         }
 
         object H2 : Rdbc(
-            connectionFactory = H2ConnectionFactory(
-                H2ConnectionConfiguration.builder().inMemory("rdbc")
-                    .username(Jdbc.H2_RDBC.user)
-                    .password(Jdbc.H2_RDBC.pass)
-                    .property(H2ConnectionOption.DB_CLOSE_DELAY, "-1")
-                    .build()
-            ),
+            connectionFactory = {
+                H2ConnectionFactory(
+                    H2ConnectionConfiguration.builder().inMemory("rdbc")
+                        .username(Jdbc.H2_RDBC.user)
+                        .password(Jdbc.H2_RDBC.pass)
+                        .property(H2ConnectionOption.DB_CLOSE_DELAY, "-1")
+                        .build()
+                )
+            },
             jdbc = Jdbc.H2_RDBC
         )
 
         object POSTGRESQL : Rdbc(
-            connectionFactory = ConnectionFactories.get(
-                ConnectionFactoryOptions.builder()
-                    .option(HOST, "localhost")
-                    .option(PORT, 12346)
-                    .option(DATABASE, "template1")
-                    .option(USER, Jdbc.POSTGRESQL.user)
-                    .option(PASSWORD, Jdbc.POSTGRESQL.pass)
-                    .build()
-            ),
+            connectionFactory = {
+                ConnectionFactories.get(
+                    ConnectionFactoryOptions.builder()
+                        .option(HOST, "localhost")
+                        .option(PORT, 12346)
+                        .option(DATABASE, "template1")
+                        .option(USER, Jdbc.POSTGRESQL.user)
+                        .option(PASSWORD, Jdbc.POSTGRESQL.pass)
+                        .build()
+                )
+            },
             jdbc = Jdbc.POSTGRESQL
         )
     }
@@ -266,7 +272,7 @@ abstract class DatabaseTestsBase {
                 }
             )
             registeredOnShutdown += dbSettings
-            dbSettings.connect()
+            dbSettings.db = dbSettings.connect()
         }
 
         val database = dbSettings.db
@@ -304,7 +310,7 @@ abstract class DatabaseTestsBase {
                         SchemaUtils.drop(*tables)
                         commit()
                     } catch (_: Exception) {
-                        val database = testDB.db!!
+                        val database = testDB.db
                         inTopLevelTransaction(database.transactionManager.defaultIsolationLevel, 1, db = database) {
                             SchemaUtils.drop(*tables)
                         }

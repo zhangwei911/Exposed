@@ -329,7 +329,7 @@ class TransactionIsolationTest : DatabaseTestsBase() {
 class TransactionManagerResetTest {
     @Test
     fun `test closeAndUnregister with next Database-connect works fine`() {
-        Assume.assumeTrue(TestDB.H2 in TestDB.enabledInTests())
+        Assume.assumeTrue(TestDB.Jdbc.H2 in TestDB.enabledInTests())
         val initialManager = TransactionManager.manager
         val db1 = TestDB.Jdbc.H2.connect()
         val db1TransactionManager = TransactionManager.managerFor(db1)

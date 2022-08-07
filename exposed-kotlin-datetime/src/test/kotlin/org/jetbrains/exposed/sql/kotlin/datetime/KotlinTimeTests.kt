@@ -49,7 +49,7 @@ open class KotlinTimeBaseTest : DatabaseTestsBase() {
             val time = datetime("time").defaultExpression(CurrentDateTime())
         }
 
-        withDb(TestDB.SQLITE) {
+        withDb(TestDB.Jdbc.SQLITE) {
             try {
                 exec("CREATE TABLE IF NOT EXISTS TestDate (id INTEGER PRIMARY KEY AUTOINCREMENT, \"time\" NUMERIC DEFAULT (CURRENT_TIMESTAMP) NOT NULL);")
                 TestDate.insert { }

@@ -28,7 +28,7 @@ class SQLServerDefaultsTest : DatabaseTestsBase() {
             val sysEnd = datetime("sysEnd").defaultExpression(databaseGeneratedTimestamp())
         }
 
-        withDb(TestDB.SQLSERVER) {
+        withDb(TestDB.Jdbc.SQLSERVER) {
             try {
                 exec(
                     """

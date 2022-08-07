@@ -801,7 +801,7 @@ class DDLTests : DatabaseTestsBase() {
             }
         }
 
-        withTables(excludeSettings = listOf(TestDB.SQLITE), TableA, TableB) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.SQLITE), TableA, TableB) {
             TableA.insert {
                 it[idA] = 1
                 it[idB] = 2
@@ -842,7 +842,7 @@ class DDLTests : DatabaseTestsBase() {
             }
         }
 
-        withTables(excludeSettings = listOf(TestDB.SQLITE), TableA, TableB) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.SQLITE), TableA, TableB) {
             TableA.insert {
                 it[idA] = 1
                 it[idB] = 2
@@ -887,7 +887,7 @@ class DDLTests : DatabaseTestsBase() {
             }
         }
 
-        withTables(excludeSettings = listOf(TestDB.SQLITE), TableA, TableB, TableC) {
+        withTables(excludeSettings = listOf(TestDB.Jdbc.SQLITE), TableA, TableB, TableC) {
             TableA.insert {
                 it[idA] = 1
                 it[idB] = 2

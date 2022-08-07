@@ -78,7 +78,7 @@ class H2Tests : DatabaseTestsBase() {
 
     @Test
     fun closeAndUnregister() {
-        withDb(TestDB.H2) { testDB ->
+        withDb(TestDB.Jdbc.H2) { testDB ->
             val originalManager = TransactionManager.manager
             val db = requireNotNull(testDB.db) { "testDB.db cannot be null" }
             try {
@@ -104,7 +104,7 @@ class H2Tests : DatabaseTestsBase() {
         }
         val t = IntIdTable(tableName)
 
-        withDb(listOf(TestDB.H2, TestDB.H2_MYSQL)) {
+        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL)) {
             try {
                 SchemaUtils.createMissingTablesAndColumns(initialTable)
                 assertEquals("ALTER TABLE ${tableName.inProperCase()} ADD ${"id".inProperCase()} ${t.id.columnType.sqlType()}", t.id.ddl.first())

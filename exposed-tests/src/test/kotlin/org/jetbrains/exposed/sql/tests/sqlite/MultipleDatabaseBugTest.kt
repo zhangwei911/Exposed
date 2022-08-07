@@ -37,7 +37,7 @@ class MultipleDatabaseBugTest {
 
     @Before
     fun before() {
-        Assume.assumeTrue(TestDB.SQLITE in TestDB.enabledInTests())
+        Assume.assumeTrue(TestDB.Jdbc.SQLITE in TestDB.enabledInTests())
         val filename = folder.newFile("foo.db").absolutePath
         val ds = SQLiteDataSource()
         ds.url = "jdbc:sqlite:" + filename
