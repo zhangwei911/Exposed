@@ -167,6 +167,7 @@ private fun <ID : Comparable<ID>> List<Entity<ID>>.preloadRelations(
                 (refObject as Referrers<ID, Entity<ID>, *, Entity<*>, Any>).reference.let { refColumn ->
                     val refIds = this.map { it.run { refColumn.referee<Any>()!!.lookup() } }
                     refObject.factory.warmUpReferences(refIds, refColumn)
+                    storeReferenceCache(refColumn, prop)
                 }
             }
             is OptionalReferrers<*, *, *, *, *> -> {
@@ -177,9 +178,15 @@ private fun <ID : Comparable<ID>> List<Entity<ID>>.preloadRelations(
                 }
             }
             is InnerTableLink<*, *, *, *> -> {
-                refObject.target.warmUpLinkedReferences(this.map { it.id }, refObject.table)
-                val refColumn = refObject.table.columns.single { it.referee == this.first().id.table.id }
-                storeReferenceCache(refColumn, prop)
+                (refObject as InnerTableLink<ID, Entity<ID>, Comparable<Comparable<*>>, Entity<Comparable<Comparable<*>>>>).let { innerTableLink ->
+                    innerTableLink.target.warmUpLinkedReferences(
+                        references = this.map { it.id },
+                        sourceRefColumn = innerTableLink.sourceColumn,
+                        targetRefColumn = innerTableLink.targetColumn,
+                        linkTable = innerTableLink.table
+                    )
+                    storeReferenceCache(innerTableLink.sourceColumn, prop)
+                }
             }
             is BackReference<*, *, *, *, *> -> {
                 (refObject.delegate as Referrers<ID, Entity<ID>, *, Entity<*>, Any>).reference.let { refColumn ->
@@ -223,6 +230,9 @@ private fun <ID : Comparable<ID>> List<Entity<ID>>.preloadRelations(
 
 fun <SRCID : Comparable<SRCID>, SRC : Entity<SRCID>, REF : Entity<*>> Iterable<SRC>.with(vararg relations: KProperty1<out REF, Any?>): Iterable<SRC> =
     toList().apply {
+        if (any { it.isNewEntity() }) {
+            TransactionManager.current().flushCache()
+        }
         preloadRelations(*relations)
     }
 

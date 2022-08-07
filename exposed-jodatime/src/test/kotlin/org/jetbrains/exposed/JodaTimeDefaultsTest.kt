@@ -31,17 +31,19 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
     object TableWithDBDefault : IntIdTable() {
         var cIndex = 0
         val field = varchar("field", 100)
-        val t1 = datetime("t1").defaultExpression(CurrentDateTime())
+        val t1 = datetime("t1").defaultExpression(CurrentDateTime)
+        val t2 = date("t2").defaultExpression(CurrentDate)
         val clientDefault = integer("clientDefault").clientDefault { cIndex++ }
     }
 
     class DBDefault(id: EntityID<Int>) : IntEntity(id) {
         var field by TableWithDBDefault.field
         var t1 by TableWithDBDefault.t1
+        var t2 by TableWithDBDefault.t2
         val clientDefault by TableWithDBDefault.clientDefault
 
         override fun equals(other: Any?): Boolean {
-            return (other as? DBDefault)?.let { id == it.id && field == it.field && equalDateTime(t1, it.t1) } ?: false
+            return (other as? DBDefault)?.let { id == it.id && field == it.field && equalDateTime(t1, it.t1) && equalDateTime(t2, it.t2) } ?: false
         }
 
         override fun hashCode(): Int = id.value.hashCode()
@@ -137,7 +139,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
 
     @Test
     fun testDefaults01() {
-        val currentDT = CurrentDateTime()
+        val currentDT = CurrentDateTime
         val nowExpression = object : Expression<DateTime>() {
             override fun toQueryBuilder(queryBuilder: QueryBuilder) = queryBuilder {
                 +when (val dialect = currentDialect) {
@@ -218,7 +220,8 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
 
         val foo = object : IntIdTable("foo") {
             val name = text("name")
-            val defaultDateTime = datetime("defaultDateTime").defaultExpression(CurrentDateTime())
+            val defaultDateTime = datetime("defaultDateTime").defaultExpression(CurrentDateTime)
+            val defaultDate = date("defaultDate").defaultExpression(CurrentDate)
             val defaultInt = integer("defaultInteger").defaultExpression(abs(-100))
         }
 
@@ -229,6 +232,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val result = foo.select { foo.id eq id }.single()
 
             assertEquals(today, result[foo.defaultDateTime].withTimeAtStartOfDay())
+            assertEquals(today, result[foo.defaultDate])
             assertEquals(100, result[foo.defaultInt])
         }
     }
@@ -237,7 +241,8 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
     fun testDefaultExpressions02() {
         val foo = object : IntIdTable("foo") {
             val name = text("name")
-            val defaultDateTime = datetime("defaultDateTime").defaultExpression(CurrentDateTime())
+            val defaultDateTime = datetime("defaultDateTime").defaultExpression(CurrentDateTime)
+            val defaultDate = date("defaultDate").defaultExpression(CurrentDate)
         }
 
         val nonDefaultDate = DateTime.parse("2000-01-01")
@@ -246,12 +251,14 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val id = foo.insertAndGetId {
                 it[foo.name] = "bar"
                 it[foo.defaultDateTime] = nonDefaultDate
+                it[foo.defaultDate] = nonDefaultDate
             }
 
             val result = foo.select { foo.id eq id }.single()
 
             assertEquals("bar", result[foo.name])
             assertEqualDateTime(nonDefaultDate, result[foo.defaultDateTime])
+            assertEqualDateTime(nonDefaultDate, result[foo.defaultDate])
 
             foo.update({ foo.id eq id }) {
                 it[foo.name] = "baz"
@@ -260,6 +267,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
             val result2 = foo.select { foo.id eq id }.single()
             assertEquals("baz", result2[foo.name])
             assertEqualDateTime(nonDefaultDate, result2[foo.defaultDateTime])
+            assertEqualDateTime(nonDefaultDate, result[foo.defaultDate])
         }
     }
 
@@ -314,7 +322,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
     @Test
     fun defaultCurrentDateTimeTest() {
         val TestDate = object : IntIdTable("TestDate") {
-            val time = datetime("time").defaultExpression(CurrentDateTime())
+            val time = datetime("time").defaultExpression(CurrentDateTime)
         }
 
         withTables(TestDate) {
@@ -345,7 +353,7 @@ class JodaTimeDefaultsTest : JodaTimeBaseTest() {
     @Test
     fun testSQLiteDateTimeFieldRegression() {
         val TestDate = object : IntIdTable("TestDate") {
-            val time = datetime("time").defaultExpression(CurrentDateTime())
+            val time = datetime("time").defaultExpression(CurrentDateTime)
         }
 
         withDb(TestDB.Jdbc.SQLITE) {

@@ -1,6 +1,7 @@
 package org.jetbrains.exposed.sql
 
 import org.intellij.lang.annotations.Language
+import org.jetbrains.exposed.exceptions.LongQueryException
 import org.jetbrains.exposed.sql.statements.GlobalStatementInterceptor
 import org.jetbrains.exposed.sql.statements.Statement
 import org.jetbrains.exposed.sql.statements.StatementInterceptor
@@ -11,6 +12,7 @@ import org.jetbrains.exposed.sql.vendors.inProperCase
 import java.sql.ResultSet
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.collections.HashMap
 
 class Key<T>
@@ -72,8 +74,8 @@ open class Transaction(private val transactionImpl: TransactionInterface) : User
         }
         transactionImpl.commit()
         userdata.clear()
-        globalInterceptors.forEach { it.afterCommit() }
-        interceptors.forEach { it.afterCommit() }
+        globalInterceptors.forEach { it.afterCommit(this) }
+        interceptors.forEach { it.afterCommit(this) }
         userdata.putAll(dataToStore)
     }
 
@@ -81,8 +83,8 @@ open class Transaction(private val transactionImpl: TransactionInterface) : User
         globalInterceptors.forEach { it.beforeRollback(this) }
         interceptors.forEach { it.beforeRollback(this) }
         transactionImpl.rollback()
-        globalInterceptors.forEach { it.afterRollback() }
-        interceptors.forEach { it.afterRollback() }
+        globalInterceptors.forEach { it.afterRollback(this) }
+        interceptors.forEach { it.afterRollback(this) }
         userdata.clear()
     }
 
@@ -134,9 +136,9 @@ open class Transaction(private val transactionImpl: TransactionInterface) : User
     fun <T, R> exec(stmt: Statement<T>, body: Statement<T>.(T) -> R): R? {
         statementCount++
 
-        val start = System.currentTimeMillis()
+        val start = System.nanoTime()
         val answer = stmt.executeIn(this)
-        val delta = System.currentTimeMillis() - start
+        val delta = (System.nanoTime() - start).let { TimeUnit.NANOSECONDS.toMillis(it) }
 
         val lazySQL = lazy(LazyThreadSafetyMode.NONE) {
             answer.second.map { it.sql(this) }.distinct().joinToString()
@@ -152,7 +154,7 @@ open class Transaction(private val transactionImpl: TransactionInterface) : User
         }
 
         if (delta > (warnLongQueriesDuration ?: Long.MAX_VALUE)) {
-            exposedLogger.warn("Long query: ${describeStatement(delta, lazySQL.value)}", RuntimeException())
+            exposedLogger.warn("Long query: ${describeStatement(delta, lazySQL.value)}", LongQueryException())
         }
 
         return answer.first?.let { stmt.body(it) }

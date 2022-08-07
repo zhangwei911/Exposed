@@ -6,9 +6,10 @@ import org.jetbrains.exposed.dao.id.IdTable
 import org.jetbrains.exposed.sql.statements.DefaultValueMarker
 import org.jetbrains.exposed.sql.statements.api.ExposedBlob
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
+import org.jetbrains.exposed.sql.vendors.MariaDBDialect
+import org.jetbrains.exposed.sql.vendors.OracleDialect
 import org.jetbrains.exposed.sql.vendors.currentDialect
 import java.io.InputStream
-import java.lang.IllegalArgumentException
 import java.math.BigDecimal
 import java.math.MathContext
 import java.math.RoundingMode
@@ -197,6 +198,8 @@ class EntityIDColumnType<T : Comparable<T>>(val idColumn: Column<T>) : ColumnTyp
         },
         idColumn.table as IdTable<T>
     )
+
+    override fun readObject(rs: ResultSet, index: Int): Any? = idColumn.columnType.readObject(rs, index)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -753,6 +756,11 @@ class UUIDColumnType : ColumnType() {
         else -> error("Unexpected value of type UUID: ${value.javaClass.canonicalName}")
     }
 
+    override fun readObject(rs: ResultSet, index: Int): Any? = when (currentDialect) {
+        is MariaDBDialect -> rs.getBytes(index)
+        else -> super.readObject(rs, index)
+    }
+
     companion object {
         private val uuidRegexp = Regex("[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}", RegexOption.IGNORE_CASE)
     }
@@ -773,6 +781,12 @@ class BooleanColumnType : ColumnType() {
     }
 
     override fun nonNullValueToString(value: Any): String = currentDialect.dataTypeProvider.booleanToStatementString(value as Boolean)
+
+    override fun notNullValueToDB(value: Any): Any = when {
+        value is Boolean && currentDialect is OracleDialect ->
+            nonNullValueToString(value)
+        else -> value
+    }
 
     companion object {
         internal val INSTANCE = BooleanColumnType()

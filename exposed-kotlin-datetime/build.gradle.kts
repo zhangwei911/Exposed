@@ -1,7 +1,5 @@
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
-import org.jetbrains.exposed.gradle.Versions
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompile
 
 plugins {
     kotlin("jvm") apply true
@@ -21,16 +19,9 @@ dependencies {
     testImplementation(kotlin("test-junit"))
 }
 
-tasks.withType<KotlinJvmCompile>().configureEach {
-    kotlinOptions {
-        jvmTarget = "1.8"
-        apiVersion = "1.5"
-        languageVersion = "1.5"
-    }
-}
-
 tasks.withType<Test>().configureEach {
-    jvmArgs = listOf("-XX:MaxPermSize=256m")
+    if (JavaVersion.VERSION_1_8 > JavaVersion.current())
+        jvmArgs = listOf("-XX:MaxPermSize=256m")
     testLogging {
         events.addAll(listOf(TestLogEvent.PASSED, TestLogEvent.FAILED, TestLogEvent.SKIPPED))
         showStandardStreams = true
