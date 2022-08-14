@@ -6,10 +6,6 @@ plugins {
     id("testWithDBs")
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     api(project(":exposed-core"))
     api("org.jetbrains.kotlinx", "kotlinx-datetime-jvm", "0.3.1")

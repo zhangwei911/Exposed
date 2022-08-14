@@ -4,14 +4,17 @@ import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
 import io.r2dbc.h2.H2ConnectionOption
+import io.r2dbc.postgresql.PostgresqlConnectionFactoryProvider
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
 import io.r2dbc.spi.ConnectionFactoryOptions.DATABASE
+import io.r2dbc.spi.ConnectionFactoryOptions.DRIVER
 import io.r2dbc.spi.ConnectionFactoryOptions.HOST
 import io.r2dbc.spi.ConnectionFactoryOptions.PASSWORD
 import io.r2dbc.spi.ConnectionFactoryOptions.PORT
 import io.r2dbc.spi.ConnectionFactoryOptions.USER
+import org.h2.engine.Mode
 import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.rdbc.connect as rdbcConnect
 import org.jetbrains.exposed.sql.*
@@ -26,7 +29,9 @@ import java.sql.Connection
 import java.util.*
 import kotlin.concurrent.thread
 import kotlin.reflect.KClass
+import kotlin.reflect.KMutableProperty1
 import kotlin.reflect.KVisibility
+import kotlin.reflect.full.declaredMemberProperties
 
 sealed class TestDB(
     val beforeConnection: () -> Unit = {},
@@ -57,17 +62,17 @@ sealed class TestDB(
     ) : TestDB(beforeConnection, afterTestFinished, dbConfig) {
 
         override fun initDatabase(config: DatabaseConfig) =
-            Database.connect(connection(), user = user, password = pass, driver = driver, databaseConfig = DatabaseConfig(dbConfig))
+            Database.connect(connection(), user = user, password = pass, driver = driver, databaseConfig = config)
 
         object H2 : Jdbc({ "jdbc:h2:mem:regular;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
         object H2_MYSQL : Jdbc(
             { "jdbc:h2:mem:mysql;MODE=MySQL;DB_CLOSE_DELAY=-1" }, "org.h2.Driver",
             beforeConnection = {
-//                Mode::class.declaredMemberProperties.firstOrNull { it.name == "convertInsertNullToZero" }?.let { field ->
-//                   val mode = Mode.getInstance("MySQL")
-//                   (field as KMutableProperty1<Mode, Boolean>).set(mode, false)
-//                }
+                Mode::class.declaredMemberProperties.firstOrNull { it.name == "convertInsertNullToZero" }?.let { field ->
+                   val mode = Mode.getInstance("MySQL")
+                   (field as KMutableProperty1<Mode, Boolean>).set(mode, false)
+                }
             })
 
         internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
@@ -161,19 +166,21 @@ sealed class TestDB(
 
     sealed class Rdbc(
         val connectionFactory: () -> ConnectionFactory,
-        val jdbc: Jdbc
-    ) : TestDB({}, {}) {
+        val jdbc: Jdbc,
+        beforeConnection: () -> Unit = {},
+        afterTestFinished: () -> Unit = {},
+    ) : TestDB(beforeConnection, afterTestFinished) {
 
         override val name: String = "RDBC.${super.name}"
 
         override fun initDatabase(config: DatabaseConfig): Database {
-            val jdbcDb = jdbc.connect()
+            registerDBIfNeeded(Jdbc.POSTGRESQL)
             return Database.rdbcConnect(
                 connection = connectionFactory().create(),
                 jdbcConnection = {
-                    (jdbcDb.connector() as JdbcConnectionImpl).connection
+                    (jdbc.db.connector() as JdbcConnectionImpl).connection
                 },
-                databaseConfig = DatabaseConfig(dbConfig)
+                databaseConfig = config
             )
         }
 
@@ -194,15 +201,18 @@ sealed class TestDB(
             connectionFactory = {
                 ConnectionFactories.get(
                     ConnectionFactoryOptions.builder()
+                        .option(DRIVER, PostgresqlConnectionFactoryProvider.POSTGRESQL_DRIVER)
                         .option(HOST, "localhost")
-                        .option(PORT, 12346)
+                        .option(PORT, postgresSQLProcess.port)
                         .option(DATABASE, "template1")
                         .option(USER, Jdbc.POSTGRESQL.user)
                         .option(PASSWORD, Jdbc.POSTGRESQL.pass)
                         .build()
                 )
             },
-            jdbc = Jdbc.POSTGRESQL
+            jdbc = Jdbc.POSTGRESQL,
+            beforeConnection = Jdbc.POSTGRESQL.beforeConnection,
+            afterTestFinished = Jdbc.POSTGRESQL.afterTestFinished,
         )
     }
 
@@ -249,6 +259,20 @@ private val mySQLProcess by lazy {
 private fun runTestContainersMySQL(): Boolean =
     (System.getProperty("exposed.test.mysql.host") ?: System.getProperty("exposed.test.mysql8.host")).isNullOrBlank()
 
+private fun registerDBIfNeeded(dbSettings: TestDB) {
+    if (dbSettings !in registeredOnShutdown) {
+        dbSettings.beforeConnection()
+        Runtime.getRuntime().addShutdownHook(
+            thread(false) {
+                dbSettings.afterTestFinished()
+                registeredOnShutdown.remove(dbSettings)
+            }
+        )
+        registeredOnShutdown += dbSettings
+        dbSettings.db = dbSettings.connect()
+    }
+}
+
 @Suppress("UnnecessaryAbstractClass")
 abstract class DatabaseTestsBase {
     init {
@@ -263,17 +287,7 @@ abstract class DatabaseTestsBase {
             throw e
         }
 
-        if (dbSettings !in registeredOnShutdown) {
-            dbSettings.beforeConnection()
-            Runtime.getRuntime().addShutdownHook(
-                thread(false) {
-                    dbSettings.afterTestFinished()
-                    registeredOnShutdown.remove(dbSettings)
-                }
-            )
-            registeredOnShutdown += dbSettings
-            dbSettings.db = dbSettings.connect()
-        }
+        registerDBIfNeeded(dbSettings)
 
         val database = dbSettings.db
 

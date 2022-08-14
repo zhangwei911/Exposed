@@ -4,10 +4,6 @@ plugins {
     kotlin("jvm") apply true
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     api(kotlin("stdlib"))
     api(kotlin("reflect"))

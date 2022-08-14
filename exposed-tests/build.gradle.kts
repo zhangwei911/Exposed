@@ -7,10 +7,6 @@ plugins {
     id("testWithDBs")
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     implementation("org.jetbrains.kotlinx", "kotlinx-coroutines-core", Versions.kotlinCoroutines)
     implementation(project(":exposed-core"))

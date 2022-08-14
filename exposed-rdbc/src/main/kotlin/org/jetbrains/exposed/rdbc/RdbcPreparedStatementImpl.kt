@@ -25,7 +25,7 @@ class RdbcPreparedStatementImpl(val statement: Statement, private val returnValu
     }
 
     private suspend fun executeAndReturnUpdatedRow(): Int {
-        return statement.execute().awaitFirst().rowsUpdated.awaitFirstOrElse { 0 }
+        return statement.execute().awaitFirst().rowsUpdated.awaitFirstOrElse { 0 }.toInt()
     }
 
     private suspend fun executeAndPrepareResultSet(): ResultSetEmulator {

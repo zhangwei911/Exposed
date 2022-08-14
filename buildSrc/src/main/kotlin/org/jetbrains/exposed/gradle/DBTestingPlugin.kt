@@ -23,9 +23,8 @@ class DBTestingPlugin : Plugin<Project> {
         with(project.tasks) {
             val h2_v1 = register<DBTest>("h2_v1Test", "H2,H2_MYSQL") {
                 testRuntimeOnly("com.h2database", "h2", Versions.h2)
-                testRuntimeOnly("io.r2dbc", "r2dbc-h2", Versions.r2dbcH2)
             }
-            val h2_v2 = register<DBTest>("h2_v2Test", "H2,H2_MYSQL") {
+            val h2_v2 = register<DBTest>("h2_v2Test", "H2,H2_MYSQL,RDBC.H2") {
                 testRuntimeOnly("com.h2database", "h2", Versions.h2_v2)
                 testRuntimeOnly("io.r2dbc", "r2dbc-h2", Versions.r2dbcH2)
             }
@@ -53,8 +52,18 @@ class DBTestingPlugin : Plugin<Project> {
                 testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
             }
             val postgresNG = register<DBTest>("postgresNGTest", "POSTGRESQLNG") {
-                testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
+//                testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
                 testRuntimeOnly("com.impossibl.pgjdbc-ng", "pgjdbc-ng", Versions.postgreNG)
+            }
+
+            val postgresR2DBC = register<DBTest>("postgresR2DBCTest", "RDBC.POSTGRESQL") {
+                testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
+                testRuntimeOnly("org.postgresql", "r2dbc-postgresql", Versions.r2dbcPostgre)
+            }
+
+            val postgresAll = register<Test>("postgresAllTest") {
+                group = "verification"
+                delegatedTo(postgres, postgresNG, postgresR2DBC)
             }
 
             val oracle = register<DBTestWithDockerCompose>("oracleTest", Parameters("ORACLE", 1521)) {
@@ -83,8 +92,7 @@ class DBTestingPlugin : Plugin<Project> {
                     h2,
                     sqlite,
                     mysql51,
-                    postgres,
-                    postgresNG
+                    postgresAll
                 )
             }
         }

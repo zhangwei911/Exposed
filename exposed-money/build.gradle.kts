@@ -3,10 +3,6 @@ plugins {
     id("testWithDBs")
 }
 
-repositories {
-    mavenCentral()
-}
-
 dependencies {
     api(project(":exposed-core"))
     api(project(":exposed-dao"))

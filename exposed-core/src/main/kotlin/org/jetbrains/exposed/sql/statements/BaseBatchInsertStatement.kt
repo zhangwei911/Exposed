@@ -14,7 +14,7 @@ abstract class BaseBatchInsertStatement(
     ignore: Boolean,
     protected val shouldReturnGeneratedValues: Boolean = true
 ) : InsertStatement<List<ResultRow>>(table, ignore)  {
-    override val isAlwaysBatch = true
+//    override val isAlwaysBatch = true
 
     internal val data = ArrayList<MutableMap<Column<*>, Any?>>()
 

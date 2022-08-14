@@ -21,6 +21,10 @@ val reportMerge by tasks.registering(ReportMergeTask::class) {
 }
 
 subprojects {
+    repositories {
+        mavenCentral()
+        maven("https://repo.spring.io/milestone")
+    }
     tasks.withType<Detekt>().configureEach detekt@{
         finalizedBy(reportMerge)
         reportMerge.configure {
@@ -44,9 +48,4 @@ nexusPublishing {
             useStaging.set(true)
         }
     }
-}
-
-repositories {
-    mavenLocal()
-    mavenCentral()
 }
