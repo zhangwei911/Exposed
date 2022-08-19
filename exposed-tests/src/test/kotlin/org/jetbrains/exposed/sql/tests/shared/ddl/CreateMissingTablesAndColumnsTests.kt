@@ -296,7 +296,7 @@ class CreateMissingTablesAndColumnsTests : DatabaseTestsBase() {
         }
 
         val excludeSettings = listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.SQLSERVER)
-        val complexAlterTable = listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Jdbc.ORACLE)
+        val complexAlterTable = listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL, TestDB.Jdbc.ORACLE)
         withDb(excludeSettings = excludeSettings) { testDb ->
             try {
                 SchemaUtils.createMissingTablesAndColumns(t1)

@@ -54,7 +54,7 @@ class InsertTests : DatabaseTestsBase() {
     }
 
     private val insertIgnoreSupportedDB = TestDB.values().toList() -
-        listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
+        listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL)
 
     @Test
     fun testInsertIgnoreAndGetId01() {
@@ -130,8 +130,7 @@ class InsertTests : DatabaseTestsBase() {
             val name = varchar("foo", 10).uniqueIndex()
         }
 
-        val insertIgnoreSupportedDB = TestDB.values().toList() -
-            listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.MYSQL, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
+        val insertIgnoreSupportedDB = TestDB.values().toList() - insertIgnoreSupportedDB
         withTables(insertIgnoreSupportedDB, idTable) {
             val insertedStatement = idTable.insertIgnore {
                 it[idTable.id] = EntityID(1, idTable)
@@ -386,7 +385,7 @@ class InsertTests : DatabaseTestsBase() {
         }
         val emojis = "\uD83D\uDC68\uD83C\uDFFF\u200D\uD83D\uDC69\uD83C\uDFFF\u200D\uD83D\uDC67\uD83C\uDFFF\u200D\uD83D\uDC66\uD83C\uDFFF"
 
-        withTables(listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG), table) {
+        withTables(listOf(TestDB.Jdbc.SQLITE, TestDB.Jdbc.H2, TestDB.Jdbc.H2_MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL), table) {
             expectException<IllegalArgumentException> {
                 table.insert {
                     it[table.emoji] = emojis

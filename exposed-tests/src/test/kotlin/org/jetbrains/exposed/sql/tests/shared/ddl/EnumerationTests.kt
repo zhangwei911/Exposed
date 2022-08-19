@@ -9,6 +9,7 @@ import org.jetbrains.exposed.sql.tests.DatabaseTestsBase
 import org.jetbrains.exposed.sql.tests.TestDB
 import org.jetbrains.exposed.sql.tests.currentDialectTest
 import org.jetbrains.exposed.sql.tests.shared.DDLTests
+import org.jetbrains.exposed.sql.tests.shared.Foo
 import org.jetbrains.exposed.sql.tests.shared.assertEquals
 import org.jetbrains.exposed.sql.vendors.H2Dialect
 import org.jetbrains.exposed.sql.vendors.MysqlDialect
@@ -17,21 +18,22 @@ import org.junit.Test
 
 class EnumerationTests : DatabaseTestsBase() {
     object EnumTable : IntIdTable("EnumTable") {
-        internal var enumColumn: Column<DDLTests.Foo> = enumeration("enumColumn")
+        internal var enumColumn: Column<Foo> = enumeration("enumColumn")
 
-        internal fun initEnumColumn(sql: String) {
+        internal fun initEnumColumn(sql: String, testDB: TestDB) {
             (columns as MutableList<Column<*>>).remove(enumColumn)
             enumColumn = customEnumeration(
                 "enumColumn", sql,
                 { value ->
                     when {
-                        currentDialectTest is H2Dialect && value is Int -> DDLTests.Foo.values()[value]
-                        else -> DDLTests.Foo.valueOf(value as String)
+                        currentDialectTest is H2Dialect && value is Int -> Foo.values()[value]
+                        else -> Foo.valueOf(value as String)
                     }
                 },
                 { value ->
-                    when (currentDialectTest) {
-                        is PostgreSQLDialect -> DDLTests.PGEnum(sql, value)
+                    when {
+                        testDB == TestDB.Rdbc.POSTGRESQL -> value
+                        currentDialectTest is PostgreSQLDialect -> DDLTests.PGEnum(sql, value)
                         else -> value.name
                     }
                 }
@@ -41,7 +43,7 @@ class EnumerationTests : DatabaseTestsBase() {
 
     @Test
     fun testCustomEnumeration01() {
-        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
+        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) { testDB ->
             val sqlType = when (currentDialectTest) {
                 is H2Dialect, is MysqlDialect -> "ENUM('Bar', 'Baz')"
                 is PostgreSQLDialect -> "FooEnum"
@@ -59,27 +61,27 @@ class EnumerationTests : DatabaseTestsBase() {
                     exec("DROP TYPE IF EXISTS FooEnum;")
                     exec("CREATE TYPE FooEnum AS ENUM ('Bar', 'Baz');")
                 }
-                EnumTable.initEnumColumn(sqlType)
+                EnumTable.initEnumColumn(sqlType, testDB)
                 SchemaUtils.create(EnumTable)
                 EnumTable.insert {
-                    it[enumColumn] = DDLTests.Foo.Bar
+                    it[enumColumn] = Foo.Bar
                 }
-                assertEquals(DDLTests.Foo.Bar, EnumTable.selectAll().single()[EnumTable.enumColumn])
+                assertEquals(Foo.Bar, EnumTable.selectAll().single()[EnumTable.enumColumn])
 
                 EnumTable.update {
-                    it[enumColumn] = DDLTests.Foo.Baz
+                    it[enumColumn] = Foo.Baz
                 }
 
                 val entity = EnumClass.new {
-                    enum = DDLTests.Foo.Baz
+                    enum = Foo.Baz
                 }
-                assertEquals(DDLTests.Foo.Baz, entity.enum)
+                assertEquals(Foo.Baz, entity.enum)
                 entity.id.value // flush entity
-                assertEquals(DDLTests.Foo.Baz, entity.enum)
-                assertEquals(DDLTests.Foo.Baz, EnumClass.reload(entity)!!.enum)
-                entity.enum = DDLTests.Foo.Bar
-//                flushCache()
-                assertEquals(DDLTests.Foo.Bar, EnumClass.reload(entity, true)!!.enum)
+                assertEquals(Foo.Baz, entity.enum)
+                assertEquals(Foo.Baz, EnumClass.reload(entity)!!.enum)
+                entity.enum = Foo.Bar
+
+                assertEquals(Foo.Bar, EnumClass.reload(entity, true)!!.enum)
             } finally {
                 try {
                     SchemaUtils.drop(EnumTable)
@@ -90,7 +92,7 @@ class EnumerationTests : DatabaseTestsBase() {
 
     @Test
     fun testCustomEnumerationWithDefaultValue() {
-        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
+        withDb(listOf(TestDB.Jdbc.H2, TestDB.Jdbc.MYSQL, TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) { testDB ->
             val sqlType = when (currentDialectTest) {
                 is H2Dialect, is MysqlDialect -> "ENUM('Bar', 'Baz')"
                 is PostgreSQLDialect -> "FooEnum2"
@@ -101,15 +103,15 @@ class EnumerationTests : DatabaseTestsBase() {
                     exec("DROP TYPE IF EXISTS FooEnum2;")
                     exec("CREATE TYPE FooEnum2 AS ENUM ('Bar', 'Baz');")
                 }
-                EnumTable.initEnumColumn(sqlType)
+                EnumTable.initEnumColumn(sqlType, testDB)
                 with(EnumTable) {
-                    EnumTable.enumColumn.default(DDLTests.Foo.Bar)
+                    EnumTable.enumColumn.default(Foo.Bar)
                 }
                 SchemaUtils.create(EnumTable)
 
                 EnumTable.insert { }
                 val default = EnumTable.selectAll().single()[EnumTable.enumColumn]
-                assertEquals(DDLTests.Foo.Bar, default)
+                assertEquals(Foo.Bar, default)
             } finally {
                 try {
                     SchemaUtils.drop(EnumTable)

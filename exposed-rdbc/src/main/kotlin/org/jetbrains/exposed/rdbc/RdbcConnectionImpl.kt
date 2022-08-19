@@ -34,7 +34,7 @@ class RdbcConnectionImpl(
         withContext(scope.coroutineContext) {
             if (localConnection == null) {
                 localConnection = connection.awaitFirst().also {
-                    it.beginTransaction()
+                    it.beginTransaction().awaitFirstOrNull()
                 }
             }
             body(localConnection!!)
@@ -135,8 +135,16 @@ class RdbcConnectionImpl(
         get() = unsupportedByRdbcDriver()
         set(value) { unsupportedByRdbcDriver() }
 
+    private var localJdbcConnection: JdbcConnection? = null
+        get() {
+            return if (field?.isClosed == false)
+                field
+            else {
+                jdbcConnection?.invoke()?.also { field = it }
+            }
+        }
     override fun <T> metadata(body: ExposedDatabaseMetadata.() -> T): T {
-        val metadata = jdbcConnection?.invoke()?.metaData?.let { JdbcDatabaseMetadataImpl("", it) }
+        val metadata = localJdbcConnection?.metaData?.let { JdbcDatabaseMetadataImpl("", it) }
             ?: withConnection { RdbcDatabaseMetadataImpl(it.metadata) }
         return metadata.body()
     }

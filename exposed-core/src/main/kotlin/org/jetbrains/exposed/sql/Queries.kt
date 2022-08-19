@@ -171,10 +171,18 @@ private fun <E, S: BaseBatchInsertStatement> executeBatch(
         }
     }
 
-    data.forEach { element ->
+    val iterator = data.iterator()
+    while (iterator.hasNext()) {
+        val element = iterator.next()
+//        if (iterator.hasNext())
         statement.handleBatchException { addBatch() }
         statement.handleBatchException(true) { body(element) }
+
     }
+//    iterator.forEach {  ->
+//        statement.handleBatchException { addBatch() }
+//        statement.handleBatchException(true) { body(element) }
+//    }
     if (statement.arguments().isNotEmpty()) {
         statement.execute(TransactionManager.current())
         result += statement.resultedValues.orEmpty()

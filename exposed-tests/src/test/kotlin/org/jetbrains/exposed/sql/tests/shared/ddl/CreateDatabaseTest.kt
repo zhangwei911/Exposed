@@ -11,7 +11,7 @@ class CreateDatabaseTest : DatabaseTestsBase() {
     @Test
     fun `create database test`() {
         // PostgreSQL will be tested in the next test function
-        withDb(excludeSettings = listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
+        withDb(excludeSettings = listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL)) {
             val dbName = "jetbrains"
             try {
                 SchemaUtils.dropDatabase(dbName)
@@ -26,7 +26,7 @@ class CreateDatabaseTest : DatabaseTestsBase() {
     @Test
     fun `create database test in postgreSQL`() {
         // PostgreSQL needs auto commit to be "ON" to allow create database statement
-        withDb(listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)) {
+        withDb(listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL)) {
             connection.autoCommit = true
             val dbName = "jetbrains"
             SchemaUtils.createDatabase(dbName)

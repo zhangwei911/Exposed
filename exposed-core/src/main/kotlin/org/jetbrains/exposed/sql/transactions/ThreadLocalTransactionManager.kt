@@ -198,12 +198,12 @@ fun <T> inTopLevelTransaction(
                     }
                 } else {
                     val currentStatement = transaction.currentStatement
-                transaction.rollbackLoggingException {
-                    exposedLogger.warn(
-                        "Transaction rollback failed: ${it.message}. Statement: $currentStatement",
-                        it
-                    )
-                }
+                    transaction.rollbackLoggingException {
+                        exposedLogger.warn(
+                            "Transaction rollback failed: ${it.message}. Statement: $currentStatement",
+                            it
+                        )
+                    }
                     throw e
                 }
             } finally {

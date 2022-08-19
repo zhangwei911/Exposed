@@ -7,6 +7,7 @@ import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.api.PreparedStatementApi
 import java.io.InputStream
 import java.sql.ResultSet
+import java.util.UUID
 
 class RdbcPreparedStatementImpl(val statement: Statement, private val returnValues: Boolean) : PreparedStatementApi {
 
@@ -57,9 +58,14 @@ class RdbcPreparedStatementImpl(val statement: Statement, private val returnValu
 
     override fun setNull(index: Int, columnType: IColumnType) {
         val encodeType = when (columnType) {
+            is EntityIDColumnType<*> -> {
+                setNull(index, columnType.idColumn.columnType)
+                return
+            }
             is IntegerColumnType, is UIntegerColumnType, is LongColumnType, is ULongColumnType,
-            is ShortColumnType, is UShortColumnType, is ByteColumnType, is UByteColumnType,
-            -> java.lang.Long::class.java
+            is ShortColumnType, is UShortColumnType, is ByteColumnType, is UByteColumnType,  -> java.lang.Long::class.java
+            is BasicBinaryColumnType, is BlobColumnType -> ByteArray::class.java
+            is UUIDColumnType -> UUID::class.java
             else -> String::class.java
         }
         statement.bindNull(index - 1, encodeType)

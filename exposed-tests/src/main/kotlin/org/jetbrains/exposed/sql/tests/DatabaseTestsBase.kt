@@ -4,7 +4,10 @@ import com.opentable.db.postgres.embedded.EmbeddedPostgres
 import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
 import io.r2dbc.h2.H2ConnectionOption
+import io.r2dbc.postgresql.PostgresqlConnectionConfiguration
+import io.r2dbc.postgresql.PostgresqlConnectionFactory
 import io.r2dbc.postgresql.PostgresqlConnectionFactoryProvider
+import io.r2dbc.postgresql.codec.EnumCodec
 import io.r2dbc.spi.ConnectionFactories
 import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryOptions
@@ -19,6 +22,7 @@ import org.jetbrains.exposed.jdbc.connect
 import org.jetbrains.exposed.rdbc.connect as rdbcConnect
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.statements.jdbc.JdbcConnectionImpl
+import org.jetbrains.exposed.sql.tests.shared.Foo
 import org.jetbrains.exposed.sql.transactions.inTopLevelTransaction
 import org.jetbrains.exposed.sql.transactions.transaction
 import org.jetbrains.exposed.sql.transactions.transactionManager
@@ -199,7 +203,23 @@ sealed class TestDB(
 
         object POSTGRESQL : Rdbc(
             connectionFactory = {
-                ConnectionFactories.get(
+                val enumCodec1 = EnumCodec.builder()
+                    .withEnum("FooEnum", Foo::class.java)
+                    .build()
+                val enumCodec2 = EnumCodec.builder()
+                    .withEnum("FooEnum2", Foo::class.java)
+                    .build()
+                val config = PostgresqlConnectionConfiguration.builder()
+                    .host("localhost")
+                    .port(postgresSQLProcess.port)
+                    .database("template1")
+                    .username(Jdbc.POSTGRESQL.user)
+                    .password(Jdbc.POSTGRESQL.pass)
+                    .codecRegistrar(enumCodec1)
+                    .codecRegistrar(enumCodec2)
+                    .build()
+                PostgresqlConnectionFactory(config)
+                /*ConnectionFactories.get(
                     ConnectionFactoryOptions.builder()
                         .option(DRIVER, PostgresqlConnectionFactoryProvider.POSTGRESQL_DRIVER)
                         .option(HOST, "localhost")
@@ -208,7 +228,7 @@ sealed class TestDB(
                         .option(USER, Jdbc.POSTGRESQL.user)
                         .option(PASSWORD, Jdbc.POSTGRESQL.pass)
                         .build()
-                )
+                )*/
             },
             jdbc = Jdbc.POSTGRESQL,
             beforeConnection = Jdbc.POSTGRESQL.beforeConnection,

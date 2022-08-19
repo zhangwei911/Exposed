@@ -51,10 +51,10 @@ abstract class Statement<out T>(val type: StatementType, val targets: List<Table
             } else
                 throw e
         }
+        val size = contexts.size
         contexts.forEachIndexed { i, context ->
             statement.fillParameters(context.args)
-            // REVIEW
-            if (contexts.size > 1 || isAlwaysBatch) statement.addBatch()
+            if (i + 1 < size) statement.addBatch()
         }
         if (!transaction.db.supportsMultipleResultSets) {
             transaction.closeExecutedStatements()

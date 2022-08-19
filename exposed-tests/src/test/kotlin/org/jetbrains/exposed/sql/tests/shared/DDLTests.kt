@@ -358,7 +358,7 @@ class DDLTests : DatabaseTestsBase() {
 
         fun SizedIterable<ResultRow>.readAsString() = map { String(it[tableWithBinary.binaryColumn]) }
 
-        withDb(listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Jdbc.SQLITE)) {
+        withDb(listOf(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL, TestDB.Jdbc.SQLITE)) {
             val exposedBytes = "Exposed".toByteArray()
             val kotlinBytes = "Kotlin".toByteArray()
 
@@ -711,12 +711,6 @@ class DDLTests : DatabaseTestsBase() {
                 }
             }
         }
-    }
-
-    internal enum class Foo {
-        Bar, Baz;
-
-        override fun toString(): String = "Foo Enum ToString: $name"
     }
 
     class PGEnum<T : Enum<T>>(enumTypeName: String, enumValue: T?) : PGobject() {

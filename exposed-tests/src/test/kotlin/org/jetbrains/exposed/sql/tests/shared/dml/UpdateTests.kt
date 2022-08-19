@@ -16,7 +16,7 @@ import java.lang.IllegalArgumentException
 
 class UpdateTests : DatabaseTestsBase() {
     private val notSupportLimit by lazy {
-        val exclude = arrayListOf<TestDB>(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG)
+        val exclude = arrayListOf<TestDB>(TestDB.Jdbc.POSTGRESQL, TestDB.Jdbc.POSTGRESQLNG, TestDB.Rdbc.POSTGRESQL)
         if (!SQLiteDialect.ENABLE_UPDATE_DELETE_LIMIT) {
             exclude.add(TestDB.Jdbc.SQLITE)
         }

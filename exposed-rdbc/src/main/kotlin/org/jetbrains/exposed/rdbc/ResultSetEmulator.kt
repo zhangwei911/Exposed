@@ -569,9 +569,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
         TODO("not implemented")
     }
 
-    override fun getStatement(): Statement {
-        TODO("not implemented")
-    }
+    override fun getStatement(): Statement? = null
 
     override fun getRef(columnIndex: Int): Ref {
         TODO("not implemented")
