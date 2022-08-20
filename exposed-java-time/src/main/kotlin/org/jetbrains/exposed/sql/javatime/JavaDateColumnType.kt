@@ -79,10 +79,10 @@ class JavaLocalDateColumnType : ColumnType(), IDateColumnType {
         else -> LocalDate.parse(value.toString())
     }
 
-    override fun notNullValueToDB(value: Any) = when {
-        value is LocalDate -> java.sql.Date(value.millis)
-        else -> value
-    }
+    override fun notNullValueToDB(value: Any) = value // when {
+//        value is LocalDate -> java.sql.Date(value.millis)
+//        else -> value
+//    }
 
     private fun longToLocalDate(instant: Long) = Instant.ofEpochMilli(instant).atZone(ZoneId.systemDefault()).toLocalDate()
 
@@ -124,8 +124,8 @@ class JavaLocalDateTimeColumnType : ColumnType(), IDateColumnType {
         value is LocalDateTime && currentDialect is SQLiteDialect ->
             SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(value.atZone(ZoneId.systemDefault()))
         value is LocalDateTime -> {
-            val instant = value.atZone(ZoneId.systemDefault()).toInstant()
-            java.sql.Timestamp(instant.toEpochMilli()).apply { nanos = instant.nano }
+            /*val instant = */value.atZone(ZoneId.systemDefault()).toInstant()
+//            java.sql.Timestamp(instant.toEpochMilli()).apply { nanos = instant.nano }
         }
         else -> value
     }

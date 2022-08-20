@@ -79,7 +79,7 @@ sealed class TestDB(
                 }
             })
 
-        internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
+//        internal object H2_RDBC : Jdbc({ "jdbc:h2:mem:rdbc;DB_CLOSE_DELAY=-1;" }, "org.h2.Driver")
 
         object SQLITE : Jdbc({ "jdbc:sqlite:file:test?mode=memory&cache=shared" }, "org.sqlite.JDBC")
 
@@ -178,7 +178,7 @@ sealed class TestDB(
         override val name: String = "RDBC.${super.name}"
 
         override fun initDatabase(config: DatabaseConfig): Database {
-            registerDBIfNeeded(Jdbc.POSTGRESQL)
+            registerDBIfNeeded(jdbc)
             return Database.rdbcConnect(
                 connection = connectionFactory().create(),
                 jdbcConnection = {
@@ -191,44 +191,26 @@ sealed class TestDB(
         object H2 : Rdbc(
             connectionFactory = {
                 H2ConnectionFactory(
-                    H2ConnectionConfiguration.builder().inMemory("rdbc")
-                        .username(Jdbc.H2_RDBC.user)
-                        .password(Jdbc.H2_RDBC.pass)
+                    H2ConnectionConfiguration.builder().inMemory("regular")
+                        .username(Jdbc.H2.user)
+                        .password(Jdbc.H2.pass)
                         .property(H2ConnectionOption.DB_CLOSE_DELAY, "-1")
                         .build()
                 )
             },
-            jdbc = Jdbc.H2_RDBC
+            jdbc = Jdbc.H2
         )
 
         object POSTGRESQL : Rdbc(
             connectionFactory = {
-                val enumCodec1 = EnumCodec.builder()
-                    .withEnum("FooEnum", Foo::class.java)
-                    .build()
-                val enumCodec2 = EnumCodec.builder()
-                    .withEnum("FooEnum2", Foo::class.java)
-                    .build()
                 val config = PostgresqlConnectionConfiguration.builder()
                     .host("localhost")
                     .port(postgresSQLProcess.port)
                     .database("template1")
                     .username(Jdbc.POSTGRESQL.user)
                     .password(Jdbc.POSTGRESQL.pass)
-                    .codecRegistrar(enumCodec1)
-                    .codecRegistrar(enumCodec2)
                     .build()
                 PostgresqlConnectionFactory(config)
-                /*ConnectionFactories.get(
-                    ConnectionFactoryOptions.builder()
-                        .option(DRIVER, PostgresqlConnectionFactoryProvider.POSTGRESQL_DRIVER)
-                        .option(HOST, "localhost")
-                        .option(PORT, postgresSQLProcess.port)
-                        .option(DATABASE, "template1")
-                        .option(USER, Jdbc.POSTGRESQL.user)
-                        .option(PASSWORD, Jdbc.POSTGRESQL.pass)
-                        .build()
-                )*/
             },
             jdbc = Jdbc.POSTGRESQL,
             beforeConnection = Jdbc.POSTGRESQL.beforeConnection,

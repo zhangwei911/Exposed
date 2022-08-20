@@ -24,13 +24,16 @@ class DBTestingPlugin : Plugin<Project> {
             val h2_v1 = register<DBTest>("h2_v1Test", "H2,H2_MYSQL") {
                 testRuntimeOnly("com.h2database", "h2", Versions.h2)
             }
-            val h2_v2 = register<DBTest>("h2_v2Test", "H2,H2_MYSQL,RDBC.H2") {
+            val h2_v2 = register<DBTest>("h2_v2Test", "H2,H2_MYSQL") {
+                testRuntimeOnly("com.h2database", "h2", Versions.h2_v2)
+            }
+            val h2_v2_r2dbc = register<DBTest>("h2_r2dbc_tv2Test", "RDBC.H2") {
                 testRuntimeOnly("com.h2database", "h2", Versions.h2_v2)
                 testRuntimeOnly("io.r2dbc", "r2dbc-h2", Versions.r2dbcH2)
             }
             val h2 = register<Test>("h2Test") {
                 group = "verification"
-                delegatedTo(h2_v1, h2_v2)
+                delegatedTo(h2_v1, h2_v2, h2_v2_r2dbc)
             }
 
             val sqlite = register<DBTest>("sqliteTest", "SQLITE") {
@@ -52,7 +55,6 @@ class DBTestingPlugin : Plugin<Project> {
                 testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
             }
             val postgresNG = register<DBTest>("postgresNGTest", "POSTGRESQLNG") {
-//                testRuntimeOnly("org.postgresql", "postgresql", Versions.postgre)
                 testRuntimeOnly("com.impossibl.pgjdbc-ng", "pgjdbc-ng", Versions.postgreNG)
             }
 

@@ -92,7 +92,7 @@ class DateColumnType(val time: Boolean) : ColumnType(), IDateColumnType {
     override fun notNullValueToDB(value: Any): Any = when {
         value is DateTime && time && currentDialect is SQLiteDialect -> SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.print(value)
         value is DateTime && time -> java.sql.Timestamp(value.millis)
-        value is DateTime -> java.sql.Date(value.millis)
+        value is DateTime -> Date(value.millis)
         else -> value
     }
 

@@ -90,7 +90,7 @@ class KotlinLocalDateColumnType : ColumnType(), IDateColumnType {
     }
 
     override fun notNullValueToDB(value: Any) = when (value) {
-        is LocalDate -> java.sql.Date(value.millis)
+        is LocalDate -> value.toJavaLocalDate()
         else -> value
     }
 
@@ -135,8 +135,8 @@ class KotlinLocalDateTimeColumnType : ColumnType(), IDateColumnType {
         value is LocalDateTime && currentDialect is SQLiteDialect ->
             SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(value.toJavaLocalDateTime().atZone(ZoneId.systemDefault()))
         value is LocalDateTime -> {
-            val instant = value.toJavaLocalDateTime().atZone(ZoneId.systemDefault()).toInstant()
-            java.sql.Timestamp(instant.toEpochMilli()).apply { nanos = instant.nano }
+            /*val instant = */value.toJavaLocalDateTime().atZone(ZoneId.systemDefault()).toInstant()
+//            java.sql.Timestamp(instant.toEpochMilli()).apply { nanos = instant.nano }
         }
         else -> value
     }
@@ -231,8 +231,8 @@ class KotlinInstantColumnType : ColumnType(), IDateColumnType {
     override fun notNullValueToDB(value: Any): Any = when {
         value is Instant && currentDialect is SQLiteDialect ->
             SQLITE_AND_ORACLE_DATE_TIME_STRING_FORMATTER.format(value.toJavaInstant())
-        value is Instant ->
-            java.sql.Timestamp.from(value.toJavaInstant())
+        value is Instant -> value.toJavaInstant()
+//            java.sql.Timestamp.from(value.toJavaInstant())
         else -> value
     }
 
@@ -266,7 +266,10 @@ class KotlinDurationColumnType : ColumnType() {
 
     override fun readObject(rs: ResultSet, index: Int): Any? {
         // ResultSet.getLong returns 0 instead of null
-        return rs.getLong(index).takeIf { rs.getObject(index) != null }
+        return if (rs.getObject(index) != null)
+            rs.getLong(index)
+        else
+            null
     }
 
     override fun notNullValueToDB(value: Any): Any {

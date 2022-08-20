@@ -10,6 +10,9 @@ import java.nio.ByteBuffer
 import java.sql.*
 import java.sql.Array
 import java.sql.Date
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.*
 
 @Suppress("TooManyFunctions")
@@ -112,9 +115,7 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
         TODO("not implemented")
     }
 
-    override fun getBigDecimal(columnIndex: Int): BigDecimal {
-        TODO("not implemented")
-    }
+    override fun getBigDecimal(columnIndex: Int): BigDecimal? = get(columnIndex)
 
     override fun getBigDecimal(columnLabel: String?): BigDecimal {
         TODO("not implemented")
@@ -162,8 +163,12 @@ internal class ResultSetEmulator(internal val rows: List<List<Pair<String, Any?>
         TODO("not implemented")
     }
 
-    override fun getTimestamp(columnIndex: Int): Timestamp {
-        TODO("not implemented")
+    override fun getTimestamp(columnIndex: Int): Timestamp? {
+        return when (val value = get<Any>(columnIndex)) {
+            is Instant -> Timestamp(value.toEpochMilli())
+            is LocalDateTime -> Timestamp(value.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli())
+            else -> null
+        }
     }
 
     override fun getTimestamp(columnLabel: String?): Timestamp {

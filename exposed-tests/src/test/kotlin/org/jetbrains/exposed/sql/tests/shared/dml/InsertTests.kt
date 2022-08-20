@@ -130,7 +130,6 @@ class InsertTests : DatabaseTestsBase() {
             val name = varchar("foo", 10).uniqueIndex()
         }
 
-        val insertIgnoreSupportedDB = TestDB.values().toList() - insertIgnoreSupportedDB
         withTables(insertIgnoreSupportedDB, idTable) {
             val insertedStatement = idTable.insertIgnore {
                 it[idTable.id] = EntityID(1, idTable)
